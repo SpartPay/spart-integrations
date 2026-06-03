@@ -68,18 +68,24 @@ rsync -a \
   --exclude='.DS_Store' \
   "${SDK_SRC}/" "${SDK_MIRROR}/"
 
-echo "==> Rewriting composer.json + composer.lock path repo + installing runtime deps via Docker..."
-# composer.lock embeds the path-repo URL under each path-typed package's
-# dist.url / source.url and takes precedence over composer.json. We rewrite
-# both so composer install can resolve spart/sdk to the in-container mirror.
+echo "==> Rewriting composer.json (+ composer.lock if present) path repo + installing runtime deps via Docker..."
+# composer.lock (when committed) embeds the path-repo URL under each
+# path-typed package's dist.url / source.url and takes precedence over
+# composer.json, so we rewrite it too. The plugin does not ship a lock,
+# so it is treated as optional and `composer install` resolves spart/sdk
+# from the in-container mirror via the rewritten composer.json.
 docker run --rm \
   -v "${STAGING_ROOT}:/build" \
   -w /build/spart-woocommerce \
-  cimg/php:8.1 sh -c "
-    sed -i 's|../../spart-sdks/php|/build/sdk-mirror|g' composer.json composer.lock && \
-    sed -i 's|\"symlink\": true|\"symlink\": false|' composer.json && \
+  cimg/php:8.1 sh -c '
+    set -e
+    sed -i "s|../../spart-sdks/php|/build/sdk-mirror|g" composer.json
+    if [ -f composer.lock ]; then
+      sed -i "s|../../spart-sdks/php|/build/sdk-mirror|g" composer.lock
+    fi
+    sed -i "s|\"symlink\": true|\"symlink\": false|" composer.json
     composer install --no-dev --no-interaction --no-progress --optimize-autoloader
-  "
+  '
 
 # Even with \"symlink\": false, some composer versions still symlink path
 # repos. Guarantee a real directory so the zip is portable.
