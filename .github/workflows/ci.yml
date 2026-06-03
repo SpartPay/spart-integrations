@@ -1,0 +1,150 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SDK_REF: 9a98df50f46db61314578ce03d567767049ff0a2  # spart-sdks sdk-v0.1.0 (immutable SHA; bump deliberately)
+
+jobs:
+  php-lint:
+    name: PHP lint (phpcs + phpstan)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: integrations/woocommerce
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: integrations
+      - name: Check out public SDK repo
+        uses: actions/checkout@v4
+        with:
+          repository: spartpay/spart-sdks
+          path: spart-sdks
+          ref: ${{ env.SDK_REF }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, xml, curl
+          tools: composer:v2
+          coverage: none
+      - uses: ramsey/composer-install@v3
+        with:
+          working-directory: integrations/woocommerce
+      - run: composer phpcs
+      - run: composer phpstan -- --no-progress --memory-limit=1G
+
+  php-unit:
+    name: PHP unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: integrations/woocommerce
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: integrations
+      - name: Check out public SDK repo
+        uses: actions/checkout@v4
+        with:
+          repository: spartpay/spart-sdks
+          path: spart-sdks
+          ref: ${{ env.SDK_REF }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, xml, curl
+          tools: composer:v2
+          coverage: none
+      - uses: ramsey/composer-install@v3
+        with:
+          working-directory: integrations/woocommerce
+      - run: composer test:unit -- --no-coverage --colors=never
+
+  php-integration:
+    name: PHP integration (wp-env + stub-spart)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: integrations/woocommerce
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: integrations
+      - name: Check out public SDK repo
+        uses: actions/checkout@v4
+        with:
+          repository: spartpay/spart-sdks
+          path: spart-sdks
+          ref: ${{ env.SDK_REF }}
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, xml, curl
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: integrations/woocommerce/package-lock.json
+      - uses: ramsey/composer-install@v3
+        with:
+          working-directory: integrations/woocommerce
+      - name: Materialize SDK path repo for wp-env
+        run: |
+          if [ -L vendor/spart/sdk ]; then
+            target=$(readlink -f vendor/spart/sdk)
+            rm vendor/spart/sdk
+            cp -R "$target" vendor/spart/sdk
+          fi
+      - run: npm ci --no-audit --no-fund --no-progress
+      - name: Boot @wordpress/env
+        run: ./tools/ci/boot-wp-env.sh integration
+      - name: Start stub-spart sidecar
+        run: ./tools/start-stub-spart.sh
+      - name: PHPUnit (integration)
+        run: |
+          npx wp-env run tests-cli \
+            --env-cwd=wp-content/plugins/spart-woocommerce \
+            bash -c "vendor/bin/phpunit -c phpunit-integration.xml.dist --colors=never"
+      - name: Stop stub-spart sidecar
+        if: always()
+        run: ./tools/stop-stub-spart.sh || true
+      - name: Tear down @wordpress/env
+        if: always()
+        run: yes | npx wp-env destroy --force || true
+
+  js:
+    name: Block build + lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: integrations/woocommerce
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: integrations
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: integrations/woocommerce/package-lock.json
+      - run: npm ci --no-audit --no-fund --no-progress
+      - name: Build blocks (if a build script exists)
+        run: npm run build --if-present

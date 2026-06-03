@@ -1,0 +1,57 @@
+{
+    "name": "spart/woocommerce",
+    "description": "Spart payment gateway for WooCommerce.",
+    "type": "wordpress-plugin",
+    "license": "GPL-2.0-or-later",
+    "require": {
+        "php": ">=8.1",
+        "spart/sdk": "@dev"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5",
+        "brain/monkey": "^2.6",
+        "mockery/mockery": "^1.6",
+        "squizlabs/php_codesniffer": "^3.10",
+        "wp-coding-standards/wpcs": "^3.1",
+        "phpcsstandards/phpcsutils": "^1.0",
+        "phpcsstandards/phpcsextra": "^1.2",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpstan/phpstan": "^1.11",
+        "php-stubs/woocommerce-stubs": "^9.0",
+        "php-stubs/wordpress-stubs": "^6.5"
+    },
+    "repositories": [
+        {
+            "type": "path",
+            "url": "../../spart-sdks/php",
+            "options": {
+                "symlink": true
+            }
+        }
+    ],
+    "autoload": {
+        "psr-4": {
+            "Spart\\WooCommerce\\": "src/Spart/WooCommerce/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Spart\\WooCommerce\\Tests\\Unit\\": "tests/unit/",
+            "Spart\\WooCommerce\\Tests\\Integration\\": "tests/integration/"
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    },
+    "scripts": {
+        "test:unit":        "phpunit -c phpunit.xml.dist",
+        "test:integration": "phpunit -c phpunit-integration.xml.dist",
+        "phpcs":            "phpcs",
+        "phpstan":          "phpstan analyse"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

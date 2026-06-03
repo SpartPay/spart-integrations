@@ -1,0 +1,17 @@
+{
+    "$schema": "https://schemas.wp.org/trunk/block.json",
+    "apiVersion": 3,
+    "name": "spart/cart-messaging",
+    "title": "Spart Cart Messaging",
+    "category": "woocommerce",
+    "description": "Displays Spart promotional messaging on the cart page.",
+    "textdomain": "spart-woocommerce",
+    "supports": {
+        "html": false,
+        "multiple": false,
+        "reusable": false
+    },
+    "render": "file:./render.php",
+    "style": "spart-messaging",
+    "editorScript": "spart-messaging-blocks-editor"
+}

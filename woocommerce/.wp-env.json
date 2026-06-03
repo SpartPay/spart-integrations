@@ -1,0 +1,20 @@
+{
+    "core": "WordPress/WordPress#6.5.5",
+    "phpVersion": "8.1",
+    "plugins": [
+        "https://downloads.wordpress.org/plugin/woocommerce.9.4.3.zip"
+    ],
+    "mappings": {
+        "wp-content/plugins/spart-woocommerce": ".",
+        "wp-content/mu-plugins/spart-test-crash-injector.php": "./tests/integration/mu-plugins/spart-test-crash-injector.php"
+    },
+    "config": {
+        "WP_DEBUG": true,
+        "WP_DEBUG_LOG": true,
+        "SCRIPT_DEBUG": true,
+        "WP_SPART_BASE_URL": "http://stub-spart:8080"
+    },
+    "lifecycleScripts": {
+        "afterStart": "npx wp-env run tests-cli wp plugin activate spart-woocommerce && npx wp-env run cli wp plugin activate spart-woocommerce"
+    }
+}

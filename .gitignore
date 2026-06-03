@@ -1,0 +1,11 @@
+# PHP
+/woocommerce/vendor/
+/woocommerce/.phpunit.cache/
+/woocommerce/.phpunit.result.cache
+/woocommerce/dist/
+
+# Node
+/woocommerce/node_modules/
+
+# OS
+.DS_Store

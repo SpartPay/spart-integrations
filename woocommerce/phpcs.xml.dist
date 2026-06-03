@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<ruleset name="spart-woocommerce">
+    <description>Coding standards for the Spart WooCommerce plugin.</description>
+
+    <file>spart-woocommerce.php</file>
+    <file>src</file>
+    <file>tests</file>
+    <exclude-pattern>vendor/*</exclude-pattern>
+    <exclude-pattern>node_modules/*</exclude-pattern>
+    <exclude-pattern>tests/*/bootstrap.php</exclude-pattern>
+    <!-- Stub-Spart is a standalone PHP-built-in-server sidecar invoked
+         by `php -S router.php`, not part of the plugin's autoload tree.
+         WordPress coding standards don't apply. -->
+    <exclude-pattern>tests/integration/stub-spart/*</exclude-pattern>
+
+    <arg name="extensions" value="php"/>
+    <arg name="colors"/>
+    <arg value="ps"/>
+
+    <config name="testVersion" value="8.1-"/>
+    <config name="text_domain" value="spart-woocommerce"/>
+    <config name="minimum_supported_wp_version" value="6.5"/>
+
+    <rule ref="WordPress">
+        <!-- We use PSR-4 + Composer autoloading; WP file-naming rules don't apply. -->
+        <exclude name="WordPress.Files.FileName"/>
+        <!-- Class names like WC_Gateway_Spart follow WC's required naming. -->
+        <exclude name="WordPress.NamingConventions.ValidVariableName.UsedPropertyNotSnakeCase"/>
+        <!-- Yoda conditions are noise in modern PHP. -->
+        <exclude name="WordPress.PHP.YodaConditions"/>
+    </rule>
+
+    <!-- Allow `$default` as a parameter name. We mirror WP's get_option($key, $default)
+         API in our own value objects; renaming it would obscure the convention. -->
+    <rule ref="Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound">
+        <severity>0</severity>
+    </rule>
+
+    <!-- Test files have legitimate reasons to override globals (mocking $wpdb)
+         and don't need WordPress's strict doc-comment requirements on tiny
+         private helpers, anonymous classes, and PHPUnit lifecycle methods. -->
+    <rule ref="WordPress.WP.GlobalVariablesOverride">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+    <rule ref="Squiz.Commenting">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+    <rule ref="Generic.Commenting">
+        <exclude-pattern>tests/*</exclude-pattern>
+    </rule>
+
+    <rule ref="WordPress.WP.I18n">
+        <properties>
+            <property name="text_domain" type="array">
+                <element value="spart-woocommerce"/>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- WooCommerce-defined capability used to gate admin notices targeting
+         shop managers and store administrators. Not a WP-core capability, so
+         the WPCS sniff doesn't know about it by default; registering it here
+         is the canonical way to silence the false-positive warning. -->
+    <rule ref="WordPress.WP.Capabilities">
+        <properties>
+            <property name="custom_capabilities" type="array">
+                <element value="manage_woocommerce"/>
+            </property>
+        </properties>
+    </rule>
+</ruleset>
