@@ -75,9 +75,13 @@ jobs:
       - run: composer test:unit -- --no-coverage --colors=never
 
   php-integration:
-    name: PHP integration (wp-env + stub-spart)
+    name: PHP integration (wp-env + stub-spart, HPOS=${{ matrix.hpos }})
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        hpos: ['on', 'off']
     defaults:
       run:
         working-directory: integrations/woocommerce
@@ -117,11 +121,11 @@ jobs:
         run: ./tools/ci/boot-wp-env.sh integration
       - name: Start stub-spart sidecar
         run: ./tools/start-stub-spart.sh
-      - name: PHPUnit (integration)
+      - name: PHPUnit (integration, HPOS=${{ matrix.hpos }})
         run: |
           npx wp-env run tests-cli \
             --env-cwd=wp-content/plugins/spart-woocommerce \
-            bash -c "vendor/bin/phpunit -c phpunit-integration.xml.dist --colors=never"
+            bash -c "WP_SPART_HPOS_MODE=${{ matrix.hpos }} vendor/bin/phpunit -c phpunit-integration.xml.dist --colors=never"
       - name: Stop stub-spart sidecar
         if: always()
         run: ./tools/stop-stub-spart.sh || true
