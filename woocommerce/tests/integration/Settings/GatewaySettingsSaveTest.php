@@ -327,8 +327,10 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		}
 	}
 
-	public function test_save_persists_default_order_duration_minutes(): void {
-		$_POST['woocommerce_spart_default_order_duration_minutes'] = '60';
+	public function test_save_persists_checkout_window_components_and_derives_minutes(): void {
+		$_POST['woocommerce_spart_default_order_window_days']    = '0';
+		$_POST['woocommerce_spart_default_order_window_hours']   = '1';
+		$_POST['woocommerce_spart_default_order_window_minutes'] = '0';
 
 		$gateway = new WC_Gateway_Spart();
 		$gateway->process_admin_options();
@@ -336,17 +338,38 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$saved = get_option( $this->option_key );
 		$this->assertIsArray( $saved );
 		$this->assertSame( 60, $saved['default_order_duration_minutes'] );
+		$this->assertSame( 0, $saved['default_order_window_days'] );
+		$this->assertSame( 1, $saved['default_order_window_hours'] );
+		$this->assertSame( 0, $saved['default_order_window_minutes'] );
 	}
 
-	public function test_save_clamps_below_five_minute_default_order_duration_to_default(): void {
-		$_POST['woocommerce_spart_default_order_duration_minutes'] = '2';
+	public function test_save_reverts_below_five_minute_window_to_default(): void {
+		$_POST['woocommerce_spart_default_order_window_days']    = '0';
+		$_POST['woocommerce_spart_default_order_window_hours']   = '0';
+		$_POST['woocommerce_spart_default_order_window_minutes'] = '2';
 
 		$gateway = new WC_Gateway_Spart();
 		$gateway->process_admin_options();
 
 		$saved = get_option( $this->option_key );
 		$this->assertIsArray( $saved );
+		// 2 minutes < 5 → reverted; no prior value → 7-day default.
 		$this->assertSame( 10080, $saved['default_order_duration_minutes'] );
+	}
+
+	public function test_save_reverts_above_seven_day_window_to_default(): void {
+		$_POST['woocommerce_spart_default_order_window_days']    = '8';
+		$_POST['woocommerce_spart_default_order_window_hours']   = '0';
+		$_POST['woocommerce_spart_default_order_window_minutes'] = '0';
+
+		$gateway = new WC_Gateway_Spart();
+		$gateway->process_admin_options();
+
+		$saved = get_option( $this->option_key );
+		$this->assertIsArray( $saved );
+		// 8 days > 7 days → reverted; no prior value → 7-day default.
+		$this->assertSame( 10080, $saved['default_order_duration_minutes'] );
+		$this->assertSame( 7, $saved['default_order_window_days'] );
 	}
 
 	/**

@@ -501,7 +501,7 @@ final class WC_Gateway_SpartTest extends TestCase {
 
 	public function test_init_form_fields_seeds_window_defaults_from_legacy_minutes(): void {
 		\Brain\Monkey\Functions\when( 'get_option' )->alias(
-			static fn ( $key = '', $default = false ) => array( 'default_order_duration_minutes' => 180 )
+			static fn () => array( 'default_order_duration_minutes' => 180 )
 		);
 
 		$gateway = new WC_Gateway_Spart();
@@ -513,7 +513,7 @@ final class WC_Gateway_SpartTest extends TestCase {
 
 	public function test_init_form_fields_keeps_schema_defaults_when_components_already_saved(): void {
 		\Brain\Monkey\Functions\when( 'get_option' )->alias(
-			static fn ( $key = '', $default = false ) => array(
+			static fn () => array(
 				'default_order_window_days'      => 1,
 				'default_order_window_hours'     => 0,
 				'default_order_window_minutes'   => 0,

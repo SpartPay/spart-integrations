@@ -327,7 +327,7 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 			}
 
 			return $settings;
-		}
+		}//end if
 
 		$settings[ Schema::DERIVED_DURATION_MINUTES_KEY ] = $total;
 		return $settings;
