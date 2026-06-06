@@ -268,6 +268,80 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 	}
 
 	/**
+	 * Render the checkout-window setting as a single row holding three
+	 * compact, individually-labelled number inputs (days / hours / minutes)
+	 * instead of three separate WooCommerce settings rows.
+	 *
+	 * WooCommerce core has no `generate_number_html`, so merely defining this
+	 * method routes every `type => number` field through it. The day
+	 * component owns and draws the combined row; the hour and minute
+	 * components render nothing of their own (their inputs live inside the
+	 * day component's row). Any other number field — there are none today —
+	 * falls back to WooCommerce's default text rendering, exactly as before.
+	 *
+	 * The three fields remain real `number` form fields, so the existing
+	 * POST -> sanitise -> {@see self::resolve_checkout_window()} save path is
+	 * completely unchanged; this override is purely presentational.
+	 *
+	 * @param string              $key  Field key.
+	 * @param array<string,mixed> $data Field definition.
+	 * @return string
+	 */
+	public function generate_number_html( $key, $data ): string {
+		if ( Schema::FIELD_WINDOW_HOURS === $key || Schema::FIELD_WINDOW_MINUTES === $key ) {
+			return '';
+		}
+
+		if ( Schema::FIELD_WINDOW_DAYS !== $key ) {
+			return $this->generate_text_html( $key, $data );
+		}
+
+		$data = wp_parse_args(
+			$data,
+			array(
+				'title'       => '',
+				'description' => '',
+			)
+		);
+
+		$components = array(
+			Schema::FIELD_WINDOW_DAYS    => __( 'Days', 'spart-woocommerce' ),
+			Schema::FIELD_WINDOW_HOURS   => __( 'Hours', 'spart-woocommerce' ),
+			Schema::FIELD_WINDOW_MINUTES => __( 'Minutes', 'spart-woocommerce' ),
+		);
+
+		ob_start();
+		?>
+<tr valign="top">
+	<th scope="row" class="titledesc"><?php echo wp_kses_post( $data['title'] ); ?></th>
+	<td class="forminp">
+		<fieldset>
+			<legend class="screen-reader-text"><span><?php echo wp_kses_post( $data['title'] ); ?></span></legend>
+			<?php foreach ( $components as $component_key => $label ) : ?>
+				<?php $field_key = $this->get_field_key( $component_key ); ?>
+				<label for="<?php echo esc_attr( $field_key ); ?>" style="display:inline-block;margin-right:1.25em;">
+					<input
+						type="number"
+						class="input-text"
+						name="<?php echo esc_attr( $field_key ); ?>"
+						id="<?php echo esc_attr( $field_key ); ?>"
+						value="<?php echo esc_attr( (string) $this->get_option( $component_key, '0' ) ); ?>"
+						min="0"
+						step="1"
+						style="width:4em;"
+					/>
+					<?php echo esc_html( $label ); ?>
+				</label>
+			<?php endforeach; ?>
+			<?php echo $this->get_description_html( $data ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce escapes its own description markup. ?>
+		</fieldset>
+	</td>
+</tr>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
 	 * Filter callback for woocommerce_settings_api_sanitized_fields_spart.
 	 *
 	 * Runs the entire saved array through {@see Schema::sanitize()} — which

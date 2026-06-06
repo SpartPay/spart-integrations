@@ -318,6 +318,59 @@ final class WC_Gateway_SpartTest extends TestCase {
 	}
 
 	/**
+	 * The day component renders the whole combined "Checkout window" row:
+	 * a single labelled row containing all three number inputs (days,
+	 * hours, minutes), each with its own sub-label, plus the current
+	 * stored values.
+	 */
+	public function test_generate_number_html_renders_combined_checkout_window_row(): void {
+		$gateway                                        = new WC_Gateway_Spart();
+		$gateway->settings['default_order_window_days'] = 2;
+		$gateway->settings['default_order_window_hours']   = 3;
+		$gateway->settings['default_order_window_minutes'] = 30;
+
+		$html = $gateway->generate_number_html(
+			'default_order_window_days',
+			array( 'title' => 'Checkout window' )
+		);
+
+		// One combined row titled "Checkout window".
+		$this->assertStringContainsString( 'Checkout window', $html );
+		$this->assertSame( 1, substr_count( $html, '<tr' ), 'Expected exactly one settings row.' );
+
+		// All three inputs present, by their WC field-key names.
+		$this->assertStringContainsString( 'name="woocommerce_spart_default_order_window_days"', $html );
+		$this->assertStringContainsString( 'name="woocommerce_spart_default_order_window_hours"', $html );
+		$this->assertStringContainsString( 'name="woocommerce_spart_default_order_window_minutes"', $html );
+
+		// Each input carries its own sub-label.
+		$this->assertStringContainsString( 'Days', $html );
+		$this->assertStringContainsString( 'Hours', $html );
+		$this->assertStringContainsString( 'Minutes', $html );
+
+		// Current stored values are reflected.
+		$this->assertStringContainsString( 'value="2"', $html );
+		$this->assertStringContainsString( 'value="3"', $html );
+		$this->assertStringContainsString( 'value="30"', $html );
+	}
+
+	public function test_generate_number_html_returns_empty_for_hours_component(): void {
+		$gateway = new WC_Gateway_Spart();
+		$this->assertSame(
+			'',
+			$gateway->generate_number_html( 'default_order_window_hours', array( 'title' => 'Checkout window — hours' ) )
+		);
+	}
+
+	public function test_generate_number_html_returns_empty_for_minutes_component(): void {
+		$gateway = new WC_Gateway_Spart();
+		$this->assertSame(
+			'',
+			$gateway->generate_number_html( 'default_order_window_minutes', array( 'title' => 'Checkout window — minutes' ) )
+		);
+	}
+
+	/**
 	 * A new secret with surrounding whitespace (e.g. copy-pasted with a
 	 * trailing newline) is trimmed before persistence. trim() is used
 	 * rather than sanitize_text_field() to avoid mangling non-ASCII
