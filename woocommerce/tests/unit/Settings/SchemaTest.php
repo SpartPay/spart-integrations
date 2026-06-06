@@ -229,6 +229,21 @@ final class SchemaTest extends TestCase {
 		$this->assertSame( 0, $total );
 	}
 
+	public function test_total_minutes_saturates_oversized_components_without_overflow(): void {
+		// A tampered POST past the HTML5 min/step guards could send an absurd
+		// component. total_minutes() must stay a strict int (no float overflow
+		// fatal) and land above MAX so the caller reverts the save.
+		$total = Schema::total_minutes(
+			array(
+				'default_order_window_days'    => '99999999999999999999',
+				'default_order_window_hours'   => 0,
+				'default_order_window_minutes' => 0,
+			)
+		);
+		$this->assertIsInt( $total );
+		$this->assertGreaterThan( Schema::MAX_ORDER_DURATION_MINUTES, $total );
+	}
+
 	/**
 	 * @return array<string, array{int}>
 	 */

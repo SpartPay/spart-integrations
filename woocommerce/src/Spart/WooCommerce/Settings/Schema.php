@@ -317,15 +317,19 @@ final class Schema {
 	}
 
 	/**
-	 * Coerce an arbitrary value to a non-negative integer (negatives and
-	 * non-numerics become 0).
+	 * Coerce an arbitrary value to a non-negative integer, saturated at
+	 * {@see MAX_ORDER_DURATION_MINUTES}. Negatives and non-numerics become 0;
+	 * absurd tampered values are capped so that {@see total_minutes()} cannot
+	 * overflow its strict int return into a float (which would fatal). Capping
+	 * never reduces an in-range component, since each component of a valid
+	 * window is itself <= MAX.
 	 *
 	 * @param mixed $value Raw value.
 	 * @return int
 	 */
 	private static function non_negative_int( mixed $value ): int {
 		$int = is_numeric( $value ) ? (int) $value : 0;
-		return max( 0, $int );
+		return min( self::MAX_ORDER_DURATION_MINUTES, max( 0, $int ) );
 	}
 
 	/**
