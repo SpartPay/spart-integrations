@@ -328,7 +328,7 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 						value="<?php echo esc_attr( (string) $this->get_option( $component_key, '0' ) ); ?>"
 						min="0"
 						step="1"
-						style="width:4em;"
+						style="width:6em;"
 					/>
 					<?php echo esc_html( $label ); ?>
 				</label>
