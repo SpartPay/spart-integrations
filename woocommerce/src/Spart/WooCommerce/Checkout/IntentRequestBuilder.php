@@ -31,7 +31,7 @@ use Spart\WooCommerce\Settings\Schema;
  *    cancelUri := wc_get_checkout_url();
  *    maxDuration is taken from $defaultOrderDurationMinutes (injected via
  *    constructor, read from the merchant settings at plugin boot time).
- *    Values below 5 are clamped to 5 defensively.
+ *    Clamped to the [5 minute, 7 day] range defensively.
  */
 final class IntentRequestBuilder {
 

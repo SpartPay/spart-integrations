@@ -308,7 +308,8 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		if ( $total < Schema::MIN_ORDER_DURATION_MINUTES || $total > Schema::MAX_ORDER_DURATION_MINUTES ) {
 			$saved      = get_option( $this->get_option_key(), array() );
 			$saved      = is_array( $saved ) ? $saved : array();
-			$prev_total = isset( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] ) && is_numeric( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] )
+			$had_prior  = isset( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] ) && is_numeric( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] );
+			$prev_total = $had_prior
 				? Schema::clamp_minutes( (int) $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] )
 				: Schema::DEFAULT_ORDER_DURATION_MINUTES;
 
@@ -320,10 +321,13 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 			$settings[ Schema::DERIVED_DURATION_MINUTES_KEY ] = $prev_total;
 
 			if ( class_exists( '\WC_Admin_Settings' ) ) {
-				$message = $total > Schema::MAX_ORDER_DURATION_MINUTES
-					? __( 'The Spart checkout window must be at most 7 days. Your previous value was kept.', 'spart-woocommerce' )
-					: __( 'The Spart checkout window must be at least 5 minutes. Your previous value was kept.', 'spart-woocommerce' );
-				\WC_Admin_Settings::add_error( $message );
+				$bound = $total > Schema::MAX_ORDER_DURATION_MINUTES
+					? __( 'The Spart checkout window must be at most 7 days.', 'spart-woocommerce' )
+					: __( 'The Spart checkout window must be at least 5 minutes.', 'spart-woocommerce' );
+				$tail  = $had_prior
+					? __( 'Your previous value was kept.', 'spart-woocommerce' )
+					: __( 'The default of 7 days was applied instead.', 'spart-woocommerce' );
+				\WC_Admin_Settings::add_error( $bound . ' ' . $tail );
 			}
 
 			return $settings;

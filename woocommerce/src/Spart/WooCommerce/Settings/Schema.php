@@ -54,11 +54,13 @@ final class Schema {
 	/**
 	 * Minimum checkout window in minutes.
 	 *
-	 * Cross-file contract: enforced by the HTML5 `min` attribute on the
-	 * settings field, by {@see Field::sanitize()} for the `'number'`
-	 * field type (clamps below-min back to default on save), AND by
-	 * {@see IntentRequestBuilder} as a defensive floor in case
-	 * Schema sanitisation was bypassed (WP-CLI, migration, raw SQL).
+	 * Cross-file contract: the day/hour/minute settings fields each use
+	 * `min=0` (no single component carries the floor), so the 5-minute
+	 * minimum is enforced on the *folded* total by the gateway on save —
+	 * {@see WC_Gateway_Spart::resolve_checkout_window()} reverts and reports
+	 * out-of-range windows — and by {@see clamp_minutes()} /
+	 * {@see IntentRequestBuilder} as a defensive floor in case Schema
+	 * sanitisation was bypassed (WP-CLI, migration, raw SQL).
 	 */
 	public const MIN_ORDER_DURATION_MINUTES = 5;
 
