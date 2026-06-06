@@ -76,6 +76,8 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		$this->form_fields                           = Schema::as_wc_settings_array();
 		$this->form_fields['webhook_url']['default'] = $this->webhook_url();
 
+		$this->seed_checkout_window_defaults();
+
 		if ( isset( $this->form_fields[ Schema::DEBUG_API_ENDPOINT_FIELD ] ) ) {
 			$env = $this->saved_environment();
 			$url = WpHttpClientFactory::base_url_for( $env );
@@ -100,6 +102,43 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 			return $saved['environment'];
 		}
 		return 'live';
+	}
+
+	/**
+	 * Seed the day/hour/minute field defaults from a legacy install's stored
+	 * total minutes, so the settings page shows the merchant's real current
+	 * window before they re-save.
+	 *
+	 * No-op once the split components have been persisted (the merchant has
+	 * saved at least once under the new schema), and for fresh installs, which
+	 * keep the schema's 7/0/0 field defaults. Runs in the constructor BEFORE
+	 * init_settings() populates $this->settings, so it reads the option row
+	 * directly like {@see saved_environment()}.
+	 */
+	private function seed_checkout_window_defaults(): void {
+		$saved = get_option( $this->get_option_key(), array() );
+		if ( ! is_array( $saved ) ) {
+			return;
+		}
+
+		$has_components = isset( $saved[ Schema::FIELD_WINDOW_DAYS ] )
+			|| isset( $saved[ Schema::FIELD_WINDOW_HOURS ] )
+			|| isset( $saved[ Schema::FIELD_WINDOW_MINUTES ] );
+		if ( $has_components ) {
+			return;
+		}
+
+		if ( ! isset( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] ) || ! is_numeric( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] ) ) {
+			return;
+		}
+
+		$parts = Schema::decompose_minutes(
+			Schema::clamp_minutes( (int) $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] )
+		);
+
+		$this->form_fields[ Schema::FIELD_WINDOW_DAYS ]['default']    = $parts['days'];
+		$this->form_fields[ Schema::FIELD_WINDOW_HOURS ]['default']   = $parts['hours'];
+		$this->form_fields[ Schema::FIELD_WINDOW_MINUTES ]['default'] = $parts['minutes'];
 	}
 
 	/**
@@ -229,6 +268,81 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 	}
 
 	/**
+	 * Render the checkout-window setting as a single row holding three
+	 * compact, individually-labelled number inputs (days / hours / minutes)
+	 * instead of three separate WooCommerce settings rows.
+	 *
+	 * WooCommerce core has no `generate_number_html`, so merely defining this
+	 * method routes every `type => number` field through it. The day
+	 * component owns and draws the combined row; the hour and minute
+	 * components render nothing of their own (their inputs live inside the
+	 * day component's row). Any other number field — there are none today —
+	 * falls back to WooCommerce's default text rendering, exactly as before.
+	 *
+	 * The three fields remain real `number` form fields, so the existing
+	 * POST -> sanitise -> {@see self::resolve_checkout_window()} save path is
+	 * completely unchanged; this override is purely presentational.
+	 *
+	 * @param string              $key  Field key.
+	 * @param array<string,mixed> $data Field definition.
+	 * @return string
+	 */
+	public function generate_number_html( $key, $data ): string {
+		if ( Schema::FIELD_WINDOW_HOURS === $key || Schema::FIELD_WINDOW_MINUTES === $key ) {
+			return '';
+		}
+
+		if ( Schema::FIELD_WINDOW_DAYS !== $key ) {
+			return $this->generate_text_html( $key, $data );
+		}
+
+		$data = wp_parse_args(
+			$data,
+			array(
+				'title'       => '',
+				'description' => '',
+				'desc_tip'    => false,
+			)
+		);
+
+		$components = array(
+			Schema::FIELD_WINDOW_DAYS    => __( 'Days', 'spart-woocommerce' ),
+			Schema::FIELD_WINDOW_HOURS   => __( 'Hours', 'spart-woocommerce' ),
+			Schema::FIELD_WINDOW_MINUTES => __( 'Minutes', 'spart-woocommerce' ),
+		);
+
+		ob_start();
+		?>
+<tr valign="top">
+	<th scope="row" class="titledesc"><?php echo wp_kses_post( $data['title'] ); ?><?php echo $this->get_tooltip_html( $data ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce generates and escapes its own help-tip markup. ?></th>
+	<td class="forminp">
+		<fieldset>
+			<legend class="screen-reader-text"><span><?php echo wp_kses_post( $data['title'] ); ?></span></legend>
+			<?php foreach ( $components as $component_key => $label ) : ?>
+				<?php $field_key = $this->get_field_key( $component_key ); ?>
+				<label for="<?php echo esc_attr( $field_key ); ?>" style="display:inline-block;margin-right:1.25em;">
+					<input
+						type="number"
+						class="input-text"
+						name="<?php echo esc_attr( $field_key ); ?>"
+						id="<?php echo esc_attr( $field_key ); ?>"
+						value="<?php echo esc_attr( (string) $this->get_option( $component_key, '0' ) ); ?>"
+						min="0"
+						step="1"
+						style="width:6em;"
+					/>
+					<?php echo esc_html( $label ); ?>
+				</label>
+			<?php endforeach; ?>
+			<?php echo $this->get_description_html( $data ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce escapes its own description markup. ?>
+		</fieldset>
+	</td>
+</tr>
+		<?php
+		return (string) ob_get_clean();
+	}
+
+	/**
 	 * Filter callback for woocommerce_settings_api_sanitized_fields_spart.
 	 *
 	 * Runs the entire saved array through {@see Schema::sanitize()} — which
@@ -243,7 +357,58 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 	 */
 	public function enforce_schema_invariants( array $settings ): array {
 		$settings                = Schema::sanitize( $settings );
+		$settings                = $this->resolve_checkout_window( $settings );
 		$settings['webhook_url'] = $this->webhook_url();
+		return $settings;
+	}
+
+	/**
+	 * Fold the three checkout-window components (days/hours/minutes) into the
+	 * canonical derived {@see Schema::DERIVED_DURATION_MINUTES_KEY} value,
+	 * enforcing the [5 minute, 7 day] range.
+	 *
+	 * Out-of-range input is rejected rather than persisted: a WC settings
+	 * error is surfaced and the previously-saved window (clamped) is restored
+	 * so the invalid combination never reaches wp_options. Fresh installs with
+	 * no prior value fall back to the 7-day default. WooCommerce's
+	 * `process_admin_options()` cannot hard-abort the POST, so "blocking" the
+	 * save means reverting the offending values in place.
+	 *
+	 * @param array<string, mixed> $settings Sanitised settings array.
+	 * @return array<string, mixed>
+	 */
+	private function resolve_checkout_window( array $settings ): array {
+		$total = Schema::total_minutes( $settings );
+
+		if ( $total < Schema::MIN_ORDER_DURATION_MINUTES || $total > Schema::MAX_ORDER_DURATION_MINUTES ) {
+			$saved      = get_option( $this->get_option_key(), array() );
+			$saved      = is_array( $saved ) ? $saved : array();
+			$had_prior  = isset( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] ) && is_numeric( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] );
+			$prev_total = $had_prior
+				? Schema::clamp_minutes( (int) $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] )
+				: Schema::DEFAULT_ORDER_DURATION_MINUTES;
+
+			$parts = Schema::decompose_minutes( $prev_total );
+
+			$settings[ Schema::FIELD_WINDOW_DAYS ]            = $parts['days'];
+			$settings[ Schema::FIELD_WINDOW_HOURS ]           = $parts['hours'];
+			$settings[ Schema::FIELD_WINDOW_MINUTES ]         = $parts['minutes'];
+			$settings[ Schema::DERIVED_DURATION_MINUTES_KEY ] = $prev_total;
+
+			if ( class_exists( '\WC_Admin_Settings' ) ) {
+				$bound = $total > Schema::MAX_ORDER_DURATION_MINUTES
+					? __( 'The Spart checkout window must be at most 7 days.', 'spart-woocommerce' )
+					: __( 'The Spart checkout window must be at least 5 minutes.', 'spart-woocommerce' );
+				$tail  = $had_prior
+					? __( 'Your previous value was kept.', 'spart-woocommerce' )
+					: __( 'The default of 7 days was applied instead.', 'spart-woocommerce' );
+				\WC_Admin_Settings::add_error( $bound . ' ' . $tail );
+			}
+
+			return $settings;
+		}//end if
+
+		$settings[ Schema::DERIVED_DURATION_MINUTES_KEY ] = $total;
 		return $settings;
 	}
 

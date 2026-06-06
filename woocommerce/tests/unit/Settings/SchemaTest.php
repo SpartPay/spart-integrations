@@ -19,10 +19,10 @@ final class SchemaTest extends TestCase {
 		parent::tearDown();
 	}
 
-	public function test_field_count_is_twelve(): void {
+	public function test_field_count_is_fourteen(): void {
 		$fields = Schema::fields();
 
-		$this->assertCount( 12, $fields );
+		$this->assertCount( 14, $fields );
 	}
 
 	public function test_field_ids_match_expected_set(): void {
@@ -36,7 +36,9 @@ final class SchemaTest extends TestCase {
 				'api_key',
 				'webhook_secret',
 				'webhook_url',
-				'default_order_duration_minutes',
+				'default_order_window_days',
+				'default_order_window_hours',
+				'default_order_window_minutes',
 				'messaging_enabled_product',
 				'messaging_enabled_cart',
 				'environment',
@@ -153,8 +155,7 @@ final class SchemaTest extends TestCase {
 		// rebuilt from scratch rather than the memoised reference.
 		Schema::reset_for_tests();
 		$rebuilt = Schema::fields();
-
-		$this->assertCount( 12, $rebuilt );
+		$this->assertCount( 14, $rebuilt );
 		$this->assertContains( Schema::DEBUG_API_ENDPOINT_FIELD, array_map( static fn ( Field $f ) => $f->id(), $rebuilt ) );
 	}
 
@@ -176,42 +177,105 @@ final class SchemaTest extends TestCase {
 		$this->assertSame( 'yes', $sanitised['enabled'] );
 	}
 
-	public function test_default_order_duration_minutes_field_default_is_seven_days(): void {
-		$field = Schema::field( 'default_order_duration_minutes' );
-		$this->assertSame( 10080, $field->default() );
+	public function test_window_day_field_default_is_seven_others_zero(): void {
+		$this->assertSame( 7, Schema::field( 'default_order_window_days' )->default() );
+		$this->assertSame( 0, Schema::field( 'default_order_window_hours' )->default() );
+		$this->assertSame( 0, Schema::field( 'default_order_window_minutes' )->default() );
 	}
 
-	public function test_default_order_duration_minutes_field_is_number_type(): void {
-		$array = Schema::field( 'default_order_duration_minutes' )->to_wc_array();
-		$this->assertSame( 'number', $array['type'] );
-		$this->assertSame( 5, $array['custom_attributes']['min'] );
-		$this->assertSame( 1, $array['custom_attributes']['step'] );
+	public function test_window_fields_are_number_type_with_zero_min(): void {
+		foreach ( array( 'default_order_window_days', 'default_order_window_hours', 'default_order_window_minutes' ) as $id ) {
+			$array = Schema::field( $id )->to_wc_array();
+			$this->assertSame( 'number', $array['type'], $id );
+			$this->assertSame( 0, $array['custom_attributes']['min'], $id );
+		}
 	}
 
-	public function test_sanitize_clamps_below_min_default_order_duration_to_default(): void {
+	public function test_sanitize_coerces_window_components_to_ints(): void {
 		$sanitised = Schema::sanitize(
 			array(
-				'default_order_duration_minutes' => '0',
+				'default_order_window_days'    => '2',
+				'default_order_window_hours'   => '3',
+				'default_order_window_minutes' => '4',
 			)
 		);
-		$this->assertSame( 10080, $sanitised['default_order_duration_minutes'] );
+		$this->assertSame( 2, $sanitised['default_order_window_days'] );
+		$this->assertSame( 3, $sanitised['default_order_window_hours'] );
+		$this->assertSame( 4, $sanitised['default_order_window_minutes'] );
 	}
 
-	public function test_sanitize_clamps_negative_default_order_duration_to_default(): void {
-		$sanitised = Schema::sanitize(
-			array(
-				'default_order_duration_minutes' => '-1',
-			)
-		);
-		$this->assertSame( 10080, $sanitised['default_order_duration_minutes'] );
+	public function test_max_order_duration_minutes_is_seven_days(): void {
+		$this->assertSame( 10080, Schema::MAX_ORDER_DURATION_MINUTES );
 	}
 
-	public function test_sanitize_passes_through_above_min_default_order_duration(): void {
-		$sanitised = Schema::sanitize(
+	public function test_total_minutes_sums_days_hours_minutes(): void {
+		$total = Schema::total_minutes(
 			array(
-				'default_order_duration_minutes' => '45',
+				'default_order_window_days'    => 1,
+				'default_order_window_hours'   => 2,
+				'default_order_window_minutes' => 3,
 			)
 		);
-		$this->assertSame( 45, $sanitised['default_order_duration_minutes'] );
+		$this->assertSame( ( 1 * 1440 ) + ( 2 * 60 ) + 3, $total );
+	}
+
+	public function test_total_minutes_treats_missing_and_negative_as_zero(): void {
+		$total = Schema::total_minutes(
+			array(
+				'default_order_window_hours'   => '-5',
+				'default_order_window_minutes' => 'x',
+			)
+		);
+		$this->assertSame( 0, $total );
+	}
+
+	public function test_total_minutes_saturates_oversized_components_without_overflow(): void {
+		// A tampered POST past the HTML5 min/step guards could send an absurd
+		// component. total_minutes() must stay a strict int (no float overflow
+		// fatal) and land above MAX so the caller reverts the save.
+		$total = Schema::total_minutes(
+			array(
+				'default_order_window_days'    => '99999999999999999999',
+				'default_order_window_hours'   => 0,
+				'default_order_window_minutes' => 0,
+			)
+		);
+		$this->assertIsInt( $total );
+		$this->assertGreaterThan( Schema::MAX_ORDER_DURATION_MINUTES, $total );
+	}
+
+	/**
+	 * @return array<string, array{int}>
+	 */
+	public static function round_trip_minutes(): array {
+		return array(
+			'five minutes' => array( 5 ),
+			'three hours'  => array( 180 ),
+			'one day'      => array( 1440 ),
+			'seven days'   => array( 10080 ),
+		);
+	}
+
+	/**
+	 * @dataProvider round_trip_minutes
+	 *
+	 * @param int $minutes Total minutes to round-trip.
+	 */
+	public function test_decompose_round_trips_with_total_minutes( int $minutes ): void {
+		$parts       = Schema::decompose_minutes( $minutes );
+		$reassembled = Schema::total_minutes(
+			array(
+				'default_order_window_days'    => $parts['days'],
+				'default_order_window_hours'   => $parts['hours'],
+				'default_order_window_minutes' => $parts['minutes'],
+			)
+		);
+		$this->assertSame( $minutes, $reassembled );
+	}
+
+	public function test_clamp_minutes_enforces_both_bounds(): void {
+		$this->assertSame( 5, Schema::clamp_minutes( 0 ) );
+		$this->assertSame( 10080, Schema::clamp_minutes( 999999 ) );
+		$this->assertSame( 180, Schema::clamp_minutes( 180 ) );
 	}
 }

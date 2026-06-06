@@ -318,6 +318,69 @@ final class WC_Gateway_SpartTest extends TestCase {
 	}
 
 	/**
+	 * The day component renders the whole combined "Max order duration" row:
+	 * a single labelled row containing all three number inputs (days,
+	 * hours, minutes), each with its own sub-label, the row's help tooltip,
+	 * plus the current stored values.
+	 */
+	public function test_generate_number_html_renders_combined_checkout_window_row(): void {
+		$gateway                                        = new WC_Gateway_Spart();
+		$gateway->settings['default_order_window_days'] = 2;
+		$gateway->settings['default_order_window_hours']   = 3;
+		$gateway->settings['default_order_window_minutes'] = 30;
+
+		$html = $gateway->generate_number_html(
+			'default_order_window_days',
+			array(
+				'title'       => 'Max order duration',
+				'description' => 'How long a checkout stays valid.',
+				'desc_tip'    => true,
+			)
+		);
+
+		// One combined row titled "Max order duration".
+		$this->assertStringContainsString( 'Max order duration', $html );
+		$this->assertSame( 1, substr_count( $html, '<tr' ), 'Expected exactly one settings row.' );
+
+		// The row carries a help tooltip (like the other settings fields)
+		// instead of an inline description.
+		$this->assertStringContainsString( 'woocommerce-help-tip', $html );
+		$this->assertStringContainsString( 'How long a checkout stays valid.', $html );
+		$this->assertStringNotContainsString( '<p class="description">', $html );
+
+		// All three inputs present, by their WC field-key names.
+		$this->assertStringContainsString( 'name="woocommerce_spart_default_order_window_days"', $html );
+		$this->assertStringContainsString( 'name="woocommerce_spart_default_order_window_hours"', $html );
+		$this->assertStringContainsString( 'name="woocommerce_spart_default_order_window_minutes"', $html );
+
+		// Each input carries its own sub-label.
+		$this->assertStringContainsString( 'Days', $html );
+		$this->assertStringContainsString( 'Hours', $html );
+		$this->assertStringContainsString( 'Minutes', $html );
+
+		// Current stored values are reflected.
+		$this->assertStringContainsString( 'value="2"', $html );
+		$this->assertStringContainsString( 'value="3"', $html );
+		$this->assertStringContainsString( 'value="30"', $html );
+	}
+
+	public function test_generate_number_html_returns_empty_for_hours_component(): void {
+		$gateway = new WC_Gateway_Spart();
+		$this->assertSame(
+			'',
+			$gateway->generate_number_html( 'default_order_window_hours', array( 'title' => 'Max order duration — hours' ) )
+		);
+	}
+
+	public function test_generate_number_html_returns_empty_for_minutes_component(): void {
+		$gateway = new WC_Gateway_Spart();
+		$this->assertSame(
+			'',
+			$gateway->generate_number_html( 'default_order_window_minutes', array( 'title' => 'Max order duration — minutes' ) )
+		);
+	}
+
+	/**
 	 * A new secret with surrounding whitespace (e.g. copy-pasted with a
 	 * trailing newline) is trimmed before persistence. trim() is used
 	 * rather than sanitize_text_field() to avoid mangling non-ASCII
@@ -437,5 +500,105 @@ final class WC_Gateway_SpartTest extends TestCase {
 		$this->assertContains( 'spart_eligibility_positive', $deleted );
 		$this->assertContains( 'spart_eligibility_negative', $deleted );
 		$this->assertContains( 'spart_eligibility_error', $deleted );
+	}
+
+	public function test_enforce_schema_invariants_derives_total_minutes_in_range(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn( array() );
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants(
+			array(
+				'default_order_window_days'    => 0,
+				'default_order_window_hours'   => 3,
+				'default_order_window_minutes' => 0,
+			)
+		);
+
+		$this->assertSame( 180, $out['default_order_duration_minutes'] );
+	}
+
+	public function test_enforce_schema_invariants_reverts_below_minimum_to_prior_value(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn(
+			array(
+				'default_order_window_days'      => 0,
+				'default_order_window_hours'     => 1,
+				'default_order_window_minutes'   => 0,
+				'default_order_duration_minutes' => 60,
+			)
+		);
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants(
+			array(
+				'default_order_window_days'    => 0,
+				'default_order_window_hours'   => 0,
+				'default_order_window_minutes' => 2, // 2 < 5 → invalid
+			)
+		);
+
+		// Reverted to the prior 60-minute window, not the invalid 2.
+		$this->assertSame( 60, $out['default_order_duration_minutes'] );
+		$this->assertSame( 0, $out['default_order_window_days'] );
+		$this->assertSame( 1, $out['default_order_window_hours'] );
+		$this->assertSame( 0, $out['default_order_window_minutes'] );
+	}
+
+	public function test_enforce_schema_invariants_reverts_above_maximum_to_default(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn( array() );
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants(
+			array(
+				'default_order_window_days'    => 8, // 8 days > 7 days → invalid
+				'default_order_window_hours'   => 0,
+				'default_order_window_minutes' => 0,
+			)
+		);
+
+		// No prior value → fall back to the 7-day default.
+		$this->assertSame( 10080, $out['default_order_duration_minutes'] );
+		$this->assertSame( 7, $out['default_order_window_days'] );
+		$this->assertSame( 0, $out['default_order_window_hours'] );
+		$this->assertSame( 0, $out['default_order_window_minutes'] );
+	}
+
+	public function test_init_form_fields_seeds_window_defaults_from_legacy_minutes(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->alias(
+			static function ( $name, $default_value = false ) {
+				if ( 'woocommerce_spart_settings' === $name ) {
+					return array( 'default_order_duration_minutes' => 180 );
+				}
+				return $default_value;
+			}
+		);
+
+		$gateway = new WC_Gateway_Spart();
+
+		$this->assertSame( 0, $gateway->form_fields['default_order_window_days']['default'] );
+		$this->assertSame( 3, $gateway->form_fields['default_order_window_hours']['default'] );
+		$this->assertSame( 0, $gateway->form_fields['default_order_window_minutes']['default'] );
+	}
+
+	public function test_init_form_fields_keeps_schema_defaults_when_components_already_saved(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->alias(
+			static function ( $name, $default_value = false ) {
+				if ( 'woocommerce_spart_settings' === $name ) {
+					return array(
+						'default_order_window_days'      => 1,
+						'default_order_window_hours'     => 0,
+						'default_order_window_minutes'   => 0,
+						'default_order_duration_minutes' => 1440,
+					);
+				}
+				return $default_value;
+			}
+		);
+
+		$gateway = new WC_Gateway_Spart();
+
+		// Components already persisted → do NOT override schema field defaults.
+		$this->assertSame( 7, $gateway->form_fields['default_order_window_days']['default'] );
+		$this->assertSame( 0, $gateway->form_fields['default_order_window_hours']['default'] );
+		$this->assertSame( 0, $gateway->form_fields['default_order_window_minutes']['default'] );
 	}
 }
