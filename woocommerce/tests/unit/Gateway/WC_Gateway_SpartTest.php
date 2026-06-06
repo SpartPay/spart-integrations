@@ -318,10 +318,10 @@ final class WC_Gateway_SpartTest extends TestCase {
 	}
 
 	/**
-	 * The day component renders the whole combined "Checkout window" row:
+	 * The day component renders the whole combined "Max order duration" row:
 	 * a single labelled row containing all three number inputs (days,
-	 * hours, minutes), each with its own sub-label, plus the current
-	 * stored values.
+	 * hours, minutes), each with its own sub-label, the row's help tooltip,
+	 * plus the current stored values.
 	 */
 	public function test_generate_number_html_renders_combined_checkout_window_row(): void {
 		$gateway                                        = new WC_Gateway_Spart();
@@ -331,12 +331,22 @@ final class WC_Gateway_SpartTest extends TestCase {
 
 		$html = $gateway->generate_number_html(
 			'default_order_window_days',
-			array( 'title' => 'Checkout window' )
+			array(
+				'title'       => 'Max order duration',
+				'description' => 'How long a checkout stays valid.',
+				'desc_tip'    => true,
+			)
 		);
 
-		// One combined row titled "Checkout window".
-		$this->assertStringContainsString( 'Checkout window', $html );
+		// One combined row titled "Max order duration".
+		$this->assertStringContainsString( 'Max order duration', $html );
 		$this->assertSame( 1, substr_count( $html, '<tr' ), 'Expected exactly one settings row.' );
+
+		// The row carries a help tooltip (like the other settings fields)
+		// instead of an inline description.
+		$this->assertStringContainsString( 'woocommerce-help-tip', $html );
+		$this->assertStringContainsString( 'How long a checkout stays valid.', $html );
+		$this->assertStringNotContainsString( '<p class="description">', $html );
 
 		// All three inputs present, by their WC field-key names.
 		$this->assertStringContainsString( 'name="woocommerce_spart_default_order_window_days"', $html );
@@ -358,7 +368,7 @@ final class WC_Gateway_SpartTest extends TestCase {
 		$gateway = new WC_Gateway_Spart();
 		$this->assertSame(
 			'',
-			$gateway->generate_number_html( 'default_order_window_hours', array( 'title' => 'Checkout window — hours' ) )
+			$gateway->generate_number_html( 'default_order_window_hours', array( 'title' => 'Max order duration — hours' ) )
 		);
 	}
 
@@ -366,7 +376,7 @@ final class WC_Gateway_SpartTest extends TestCase {
 		$gateway = new WC_Gateway_Spart();
 		$this->assertSame(
 			'',
-			$gateway->generate_number_html( 'default_order_window_minutes', array( 'title' => 'Checkout window — minutes' ) )
+			$gateway->generate_number_html( 'default_order_window_minutes', array( 'title' => 'Max order duration — minutes' ) )
 		);
 	}
 

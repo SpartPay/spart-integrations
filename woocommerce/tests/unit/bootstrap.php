@@ -82,7 +82,24 @@ if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
         }
 
         public function get_description_html( array $data ): string {
+            // Match WC: when desc_tip is set the description renders as a
+            // hover tooltip (see get_tooltip_html), not inline.
+            if ( ! empty( $data['desc_tip'] ) ) {
+                return '';
+            }
             return isset( $data['description'] ) ? '<p class="description">' . $data['description'] . '</p>' : '';
+        }
+
+        public function get_tooltip_html( array $data ): string {
+            if ( empty( $data['desc_tip'] ) ) {
+                return '';
+            }
+            $tip = true === $data['desc_tip']
+                ? ( $data['description'] ?? '' )
+                : (string) $data['desc_tip'];
+            return '' !== $tip
+                ? '<span class="woocommerce-help-tip" data-tip="' . $tip . '"></span>'
+                : '';
         }
 
         abstract public function process_payment( mixed $order_id ): mixed;

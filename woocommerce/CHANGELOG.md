@@ -58,16 +58,16 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 - **Friendlier checkout-window setting.** The single "Default checkout window
   (minutes)" box in **WooCommerce → Settings → Payments → Spart** is replaced
-  by a single **Checkout window** row holding three compact **Days / Hours /
-  Minutes** number inputs side by side, each with its own label. The combined
-  window is validated on save to be between **5 minutes and 7 days**; an
-  out-of-range combination is rejected with an admin error and the
-  previously-saved window is kept. Existing installs are seeded automatically
-  from their stored value (shown decomposed into days/hours/minutes) and keep
-  working until the next save. The duration sent to Spart
-  (`default_order_duration_minutes`) is unchanged — it is now derived from the
-  three fields — and the checkout builder defensively clamps it to the same
-  5-minute…7-day range.
+  by a single **Max order duration** row holding three compact **Days / Hours /
+  Minutes** number inputs side by side, each with its own label, plus a help
+  tooltip explaining the setting. The combined window is validated on save to
+  be between **5 minutes and 7 days**; an out-of-range combination is rejected
+  with an admin error and the previously-saved window is kept. Existing
+  installs are seeded automatically from their stored value (shown decomposed
+  into days/hours/minutes) and keep working until the next save. The duration
+  sent to Spart (`default_order_duration_minutes`) is unchanged — it is now
+  derived from the three fields — and the checkout builder defensively clamps
+  it to the same 5-minute…7-day range.
 - **"Debug logging" setting renamed to "Verbose logging".** WARNING and
   ERROR messages are always written now; this setting only gates the
   additional INFO and DEBUG checkout trace lines. The stored option key

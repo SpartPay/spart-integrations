@@ -301,6 +301,7 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 			array(
 				'title'       => '',
 				'description' => '',
+				'desc_tip'    => false,
 			)
 		);
 
@@ -313,7 +314,7 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		ob_start();
 		?>
 <tr valign="top">
-	<th scope="row" class="titledesc"><?php echo wp_kses_post( $data['title'] ); ?></th>
+	<th scope="row" class="titledesc"><?php echo wp_kses_post( $data['title'] ); ?><?php echo $this->get_tooltip_html( $data ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- WooCommerce generates and escapes its own help-tip markup. ?></th>
 	<td class="forminp">
 		<fieldset>
 			<legend class="screen-reader-text"><span><?php echo wp_kses_post( $data['title'] ); ?></span></legend>

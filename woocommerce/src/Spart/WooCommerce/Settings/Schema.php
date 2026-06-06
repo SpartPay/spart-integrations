@@ -191,23 +191,23 @@ final class Schema {
 			),
 			Field::number(
 				self::FIELD_WINDOW_DAYS,
-				__( 'Checkout window — days', 'spart-woocommerce' ),
+				__( 'Max order duration', 'spart-woocommerce' ),
 				7,
 				0,
 				array(
-					'description' => __( 'How long a Spart checkout stays valid before it expires. The combined days + hours + minutes window must be between 5 minutes and 7 days; default 7 days.', 'spart-woocommerce' ),
+					'description' => __( 'How long a Spart checkout stays valid before the order expires. Set it with the days, hours, and minutes inputs combined; the total must be between 5 minutes and 7 days (default 7 days).', 'spart-woocommerce' ),
 					'desc_tip'    => true,
 				)
 			),
 			Field::number(
 				self::FIELD_WINDOW_HOURS,
-				__( 'Checkout window — hours', 'spart-woocommerce' ),
+				__( 'Max order duration — hours', 'spart-woocommerce' ),
 				0,
 				0
 			),
 			Field::number(
 				self::FIELD_WINDOW_MINUTES,
-				__( 'Checkout window — minutes', 'spart-woocommerce' ),
+				__( 'Max order duration — minutes', 'spart-woocommerce' ),
 				0,
 				0
 			),
