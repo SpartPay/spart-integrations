@@ -76,6 +76,8 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		$this->form_fields                           = Schema::as_wc_settings_array();
 		$this->form_fields['webhook_url']['default'] = $this->webhook_url();
 
+		$this->seed_checkout_window_defaults();
+
 		if ( isset( $this->form_fields[ Schema::DEBUG_API_ENDPOINT_FIELD ] ) ) {
 			$env = $this->saved_environment();
 			$url = WpHttpClientFactory::base_url_for( $env );
@@ -100,6 +102,43 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 			return $saved['environment'];
 		}
 		return 'live';
+	}
+
+	/**
+	 * Seed the day/hour/minute field defaults from a legacy install's stored
+	 * total minutes, so the settings page shows the merchant's real current
+	 * window before they re-save.
+	 *
+	 * No-op once the split components have been persisted (the merchant has
+	 * saved at least once under the new schema), and for fresh installs, which
+	 * keep the schema's 7/0/0 field defaults. Runs in the constructor BEFORE
+	 * init_settings() populates $this->settings, so it reads the option row
+	 * directly like {@see saved_environment()}.
+	 */
+	private function seed_checkout_window_defaults(): void {
+		$saved = get_option( $this->get_option_key(), array() );
+		if ( ! is_array( $saved ) ) {
+			return;
+		}
+
+		$has_components = isset( $saved[ Schema::FIELD_WINDOW_DAYS ] )
+			|| isset( $saved[ Schema::FIELD_WINDOW_HOURS ] )
+			|| isset( $saved[ Schema::FIELD_WINDOW_MINUTES ] );
+		if ( $has_components ) {
+			return;
+		}
+
+		if ( ! isset( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] ) || ! is_numeric( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] ) ) {
+			return;
+		}
+
+		$parts = Schema::decompose_minutes(
+			Schema::clamp_minutes( (int) $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] )
+		);
+
+		$this->form_fields[ Schema::FIELD_WINDOW_DAYS ]['default']    = $parts['days'];
+		$this->form_fields[ Schema::FIELD_WINDOW_HOURS ]['default']   = $parts['hours'];
+		$this->form_fields[ Schema::FIELD_WINDOW_MINUTES ]['default'] = $parts['minutes'];
 	}
 
 	/**
@@ -243,7 +282,54 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 	 */
 	public function enforce_schema_invariants( array $settings ): array {
 		$settings                = Schema::sanitize( $settings );
+		$settings                = $this->resolve_checkout_window( $settings );
 		$settings['webhook_url'] = $this->webhook_url();
+		return $settings;
+	}
+
+	/**
+	 * Fold the three checkout-window components (days/hours/minutes) into the
+	 * canonical derived {@see Schema::DERIVED_DURATION_MINUTES_KEY} value,
+	 * enforcing the [5 minute, 7 day] range.
+	 *
+	 * Out-of-range input is rejected rather than persisted: a WC settings
+	 * error is surfaced and the previously-saved window (clamped) is restored
+	 * so the invalid combination never reaches wp_options. Fresh installs with
+	 * no prior value fall back to the 7-day default. WooCommerce's
+	 * `process_admin_options()` cannot hard-abort the POST, so "blocking" the
+	 * save means reverting the offending values in place.
+	 *
+	 * @param array<string, mixed> $settings Sanitised settings array.
+	 * @return array<string, mixed>
+	 */
+	private function resolve_checkout_window( array $settings ): array {
+		$total = Schema::total_minutes( $settings );
+
+		if ( $total < Schema::MIN_ORDER_DURATION_MINUTES || $total > Schema::MAX_ORDER_DURATION_MINUTES ) {
+			$saved      = get_option( $this->get_option_key(), array() );
+			$saved      = is_array( $saved ) ? $saved : array();
+			$prev_total = isset( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] ) && is_numeric( $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] )
+				? Schema::clamp_minutes( (int) $saved[ Schema::DERIVED_DURATION_MINUTES_KEY ] )
+				: Schema::DEFAULT_ORDER_DURATION_MINUTES;
+
+			$parts = Schema::decompose_minutes( $prev_total );
+
+			$settings[ Schema::FIELD_WINDOW_DAYS ]            = $parts['days'];
+			$settings[ Schema::FIELD_WINDOW_HOURS ]           = $parts['hours'];
+			$settings[ Schema::FIELD_WINDOW_MINUTES ]         = $parts['minutes'];
+			$settings[ Schema::DERIVED_DURATION_MINUTES_KEY ] = $prev_total;
+
+			if ( class_exists( '\WC_Admin_Settings' ) ) {
+				$message = $total > Schema::MAX_ORDER_DURATION_MINUTES
+					? __( 'The Spart checkout window must be at most 7 days. Your previous value was kept.', 'spart-woocommerce' )
+					: __( 'The Spart checkout window must be at least 5 minutes. Your previous value was kept.', 'spart-woocommerce' );
+				\WC_Admin_Settings::add_error( $message );
+			}
+
+			return $settings;
+		}
+
+		$settings[ Schema::DERIVED_DURATION_MINUTES_KEY ] = $total;
 		return $settings;
 	}
 

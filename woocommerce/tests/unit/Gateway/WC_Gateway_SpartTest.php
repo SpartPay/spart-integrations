@@ -438,4 +438,94 @@ final class WC_Gateway_SpartTest extends TestCase {
 		$this->assertContains( 'spart_eligibility_negative', $deleted );
 		$this->assertContains( 'spart_eligibility_error', $deleted );
 	}
+
+	public function test_enforce_schema_invariants_derives_total_minutes_in_range(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn( array() );
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants(
+			array(
+				'default_order_window_days'    => 0,
+				'default_order_window_hours'   => 3,
+				'default_order_window_minutes' => 0,
+			)
+		);
+
+		$this->assertSame( 180, $out['default_order_duration_minutes'] );
+	}
+
+	public function test_enforce_schema_invariants_reverts_below_minimum_to_prior_value(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn(
+			array(
+				'default_order_window_days'      => 0,
+				'default_order_window_hours'     => 1,
+				'default_order_window_minutes'   => 0,
+				'default_order_duration_minutes' => 60,
+			)
+		);
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants(
+			array(
+				'default_order_window_days'    => 0,
+				'default_order_window_hours'   => 0,
+				'default_order_window_minutes' => 2, // 2 < 5 → invalid
+			)
+		);
+
+		// Reverted to the prior 60-minute window, not the invalid 2.
+		$this->assertSame( 60, $out['default_order_duration_minutes'] );
+		$this->assertSame( 0, $out['default_order_window_days'] );
+		$this->assertSame( 1, $out['default_order_window_hours'] );
+		$this->assertSame( 0, $out['default_order_window_minutes'] );
+	}
+
+	public function test_enforce_schema_invariants_reverts_above_maximum_to_default(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn( array() );
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants(
+			array(
+				'default_order_window_days'    => 8, // 8 days > 7 days → invalid
+				'default_order_window_hours'   => 0,
+				'default_order_window_minutes' => 0,
+			)
+		);
+
+		// No prior value → fall back to the 7-day default.
+		$this->assertSame( 10080, $out['default_order_duration_minutes'] );
+		$this->assertSame( 7, $out['default_order_window_days'] );
+		$this->assertSame( 0, $out['default_order_window_hours'] );
+		$this->assertSame( 0, $out['default_order_window_minutes'] );
+	}
+
+	public function test_init_form_fields_seeds_window_defaults_from_legacy_minutes(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->alias(
+			static fn ( $key = '', $default = false ) => array( 'default_order_duration_minutes' => 180 )
+		);
+
+		$gateway = new WC_Gateway_Spart();
+
+		$this->assertSame( 0, $gateway->form_fields['default_order_window_days']['default'] );
+		$this->assertSame( 3, $gateway->form_fields['default_order_window_hours']['default'] );
+		$this->assertSame( 0, $gateway->form_fields['default_order_window_minutes']['default'] );
+	}
+
+	public function test_init_form_fields_keeps_schema_defaults_when_components_already_saved(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->alias(
+			static fn ( $key = '', $default = false ) => array(
+				'default_order_window_days'      => 1,
+				'default_order_window_hours'     => 0,
+				'default_order_window_minutes'   => 0,
+				'default_order_duration_minutes' => 1440,
+			)
+		);
+
+		$gateway = new WC_Gateway_Spart();
+
+		// Components already persisted → do NOT override schema field defaults.
+		$this->assertSame( 7, $gateway->form_fields['default_order_window_days']['default'] );
+		$this->assertSame( 0, $gateway->form_fields['default_order_window_hours']['default'] );
+		$this->assertSame( 0, $gateway->form_fields['default_order_window_minutes']['default'] );
+	}
 }
