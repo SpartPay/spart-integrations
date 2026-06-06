@@ -39,9 +39,10 @@ final class IntentRequestBuilder {
 	 * Constructor.
 	 *
 	 * @param int $default_order_duration_minutes Merchant-configured default checkout
-	 *                                             window. Below-5 values are clamped to
-	 *                                             5 defensively in case Schema::sanitize
-	 *                                             was bypassed (WP-CLI, migration, raw SQL).
+	 *                                             window. Clamped to the [5 minute,
+	 *                                             7 day] range defensively in case the
+	 *                                             gateway save validation was bypassed
+	 *                                             (WP-CLI, migration, raw SQL).
 	 */
 	public function __construct(
 		private readonly int $default_order_duration_minutes,
@@ -80,7 +81,7 @@ final class IntentRequestBuilder {
 		);
 
 		$options = new OrderOptions(
-			new \DateInterval( 'PT' . max( Schema::MIN_ORDER_DURATION_MINUTES, $this->default_order_duration_minutes ) . 'M' ),
+			new \DateInterval( 'PT' . Schema::clamp_minutes( $this->default_order_duration_minutes ) . 'M' ),
 			$this->return_uri_for( $order ),
 			$this->cancel_uri(),
 		);

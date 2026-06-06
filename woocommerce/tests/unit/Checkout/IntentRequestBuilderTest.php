@@ -260,6 +260,25 @@ final class IntentRequestBuilderTest extends TestCase {
 		$this->assertEquals( new \DateInterval( 'PT10080M' ), $req->options->maxDuration );
 	}
 
+	public function test_clamps_duration_above_seven_days_to_seven_days(): void {
+		$order = $this->make_order(
+			array(
+				'id'       => 42,
+				'currency' => 'USD',
+				'total'    => '10.00',
+				'email'    => 'jane@example.com',
+				'items'    => array(),
+			)
+		);
+
+		$req = ( new IntentRequestBuilder( 20000 ) )->build( $order, new SessionIdComposer( 'a1b2c3d4' ) );
+
+		// Defensive ceiling: anything above 7 days (10080 min) is clamped down,
+		// mirroring the gateway save-time enforcement, in case the option row
+		// was written by something other than the settings UI.
+		$this->assertEquals( new \DateInterval( 'PT10080M' ), $req->options->maxDuration );
+	}
+
 	public function test_enforces_five_minute_floor_defensively_when_setting_below_min(): void {
 		// Schema::sanitize already clamps below-5 to default at save time,
 		// but the builder enforces the same floor defensively in case the
