@@ -63,6 +63,39 @@ final class Schema {
 	public const MIN_ORDER_DURATION_MINUTES = 5;
 
 	/**
+	 * Maximum checkout window in minutes: 7 days (60 × 24 × 7).
+	 *
+	 * Stripe authorization holds expire after ~7 days, so a window longer
+	 * than this would let the auth lapse before capture. Enforced when the
+	 * gateway folds the day/hour/minute components on save, and applied as a
+	 * defensive ceiling in {@see clamp_minutes()} / {@see IntentRequestBuilder}.
+	 */
+	public const MAX_ORDER_DURATION_MINUTES = 10080;
+
+	/** Minutes in one day. */
+	public const MINUTES_PER_DAY = 1440;
+
+	/** Minutes in one hour. */
+	public const MINUTES_PER_HOUR = 60;
+
+	/** Settings field id: days component of the checkout window. */
+	public const FIELD_WINDOW_DAYS = 'default_order_window_days';
+
+	/** Settings field id: hours component of the checkout window. */
+	public const FIELD_WINDOW_HOURS = 'default_order_window_hours';
+
+	/** Settings field id: minutes component of the checkout window. */
+	public const FIELD_WINDOW_MINUTES = 'default_order_window_minutes';
+
+	/**
+	 * Derived (non-rendered) option key holding the canonical total checkout
+	 * window in minutes. Computed from the three window components on save and
+	 * read by {@see Plugin::checkout_session()}. Never declared as a Field, so
+	 * it does not appear in {@see fields()} / {@see sanitize()}.
+	 */
+	public const DERIVED_DURATION_MINUTES_KEY = 'default_order_duration_minutes';
+
+	/**
 	 * Memoised field list.
 	 *
 	 * @var array<int, Field>|null
@@ -155,14 +188,26 @@ final class Schema {
 				)
 			),
 			Field::number(
-				'default_order_duration_minutes',
-				__( 'Default checkout window (minutes)', 'spart-woocommerce' ),
-				self::DEFAULT_ORDER_DURATION_MINUTES,
-				self::MIN_ORDER_DURATION_MINUTES,
+				self::FIELD_WINDOW_DAYS,
+				__( 'Checkout window — days', 'spart-woocommerce' ),
+				7,
+				0,
 				array(
-					'description' => __( 'How long a Spart checkout stays valid before it expires. Minimum 5 minutes; default 7 days (10080 minutes).', 'spart-woocommerce' ),
+					'description' => __( 'How long a Spart checkout stays valid before it expires. The combined days + hours + minutes window must be between 5 minutes and 7 days; default 7 days.', 'spart-woocommerce' ),
 					'desc_tip'    => true,
 				)
+			),
+			Field::number(
+				self::FIELD_WINDOW_HOURS,
+				__( 'Checkout window — hours', 'spart-woocommerce' ),
+				0,
+				0
+			),
+			Field::number(
+				self::FIELD_WINDOW_MINUTES,
+				__( 'Checkout window — minutes', 'spart-woocommerce' ),
+				0,
+				0
 			),
 			Field::checkbox(
 				'messaging_enabled_product',
@@ -226,6 +271,61 @@ final class Schema {
 		throw new \InvalidArgumentException(
 			sprintf( 'Unknown Spart settings field "%s".', $id ) // phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped
 		);
+	}
+
+	/**
+	 * Total checkout window in minutes derived from the three window
+	 * components. Missing, non-numeric, or negative components count as 0.
+	 *
+	 * @param array<string, mixed> $settings Settings array (raw or sanitised).
+	 * @return int
+	 */
+	public static function total_minutes( array $settings ): int {
+		$days    = self::non_negative_int( $settings[ self::FIELD_WINDOW_DAYS ] ?? 0 );
+		$hours   = self::non_negative_int( $settings[ self::FIELD_WINDOW_HOURS ] ?? 0 );
+		$minutes = self::non_negative_int( $settings[ self::FIELD_WINDOW_MINUTES ] ?? 0 );
+
+		return ( $days * self::MINUTES_PER_DAY ) + ( $hours * self::MINUTES_PER_HOUR ) + $minutes;
+	}
+
+	/**
+	 * Split a total minute count into day / hour / minute components.
+	 * Negative input is treated as 0. Round-trips with {@see total_minutes()}.
+	 *
+	 * @param int $minutes Total minutes.
+	 * @return array{days:int, hours:int, minutes:int}
+	 */
+	public static function decompose_minutes( int $minutes ): array {
+		$minutes = max( 0, $minutes );
+		$rem     = $minutes % self::MINUTES_PER_DAY;
+
+		return array(
+			'days'    => intdiv( $minutes, self::MINUTES_PER_DAY ),
+			'hours'   => intdiv( $rem, self::MINUTES_PER_HOUR ),
+			'minutes' => $rem % self::MINUTES_PER_HOUR,
+		);
+	}
+
+	/**
+	 * Clamp a minute count into the valid [MIN, MAX] checkout-window range.
+	 *
+	 * @param int $minutes Candidate minutes.
+	 * @return int
+	 */
+	public static function clamp_minutes( int $minutes ): int {
+		return min( self::MAX_ORDER_DURATION_MINUTES, max( self::MIN_ORDER_DURATION_MINUTES, $minutes ) );
+	}
+
+	/**
+	 * Coerce an arbitrary value to a non-negative integer (negatives and
+	 * non-numerics become 0).
+	 *
+	 * @param mixed $value Raw value.
+	 * @return int
+	 */
+	private static function non_negative_int( mixed $value ): int {
+		$int = is_numeric( $value ) ? (int) $value : 0;
+		return max( 0, $int );
 	}
 
 	/**
