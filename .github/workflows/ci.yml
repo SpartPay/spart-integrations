@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SDK_REF: 87898155915ef446f195660df5c47c9b0db27c5d  # spart-sdks feat/webhook-payment-parts (order.created + paymentParts); re-pin to the released tag once spartpay/spart-sdks#14 is merged
+  SDK_REF: 26a0d29d6443a1b5be40699587c80b0ea85d53e3  # spart-sdks main @ #14 merge (order.created + paymentParts); was a squash-merge so the prior branch-tip SHA is orphaned
 
 jobs:
   php-lint:
