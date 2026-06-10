@@ -118,7 +118,7 @@ final class OrderPayeesMetaBox {
 			echo '<td>' . $this->money( $part, 'total' ) . '</td>';
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- money() returns wc_price() output (pre-escaped HTML).
 			echo '<td>' . $this->money( $part, 'net' ) . '</td>';
-			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- fees() returns esc_html()-escaped fragments.
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- fees() returns esc_html()-escaped fee names concatenated with wc_price() HTML, joined by <br>; all fragments are individually escaped.
 			echo '<td>' . $this->fees( $part ) . '</td>';
 			echo '</tr>';
 		}

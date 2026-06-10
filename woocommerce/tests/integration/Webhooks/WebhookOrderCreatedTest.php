@@ -16,7 +16,6 @@ namespace Spart\WooCommerce\Tests\Integration\Webhooks;
 
 use Spart\WooCommerce\Tests\Integration\WC_Spart_IntegrationTestCase;
 use Spart\WooCommerce\Webhooks\OrderSync;
-use Spart\WooCommerce\Webhooks\WebhookReceiver;
 
 final class WebhookOrderCreatedTest extends WC_Spart_IntegrationTestCase {
 
