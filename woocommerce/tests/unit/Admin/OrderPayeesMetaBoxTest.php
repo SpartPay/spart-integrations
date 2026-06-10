@@ -42,6 +42,7 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'get_meta' )
 			->with( OrderSync::META_PAYMENT_PARTS, true )
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- test helper; wp_json_encode() unavailable in unit tests.
 			->andReturn( (string) json_encode( $parts ) );
 		return $order;
 	}
@@ -51,6 +52,7 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		$order->shouldReceive( 'get_meta' )
 			->with( OrderSync::META_PAYMENT_PARTS, true )
 			->andReturn(
+				// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- test helper; wp_json_encode() unavailable in unit tests.
 				(string) json_encode(
 					array(
 						'v'     => 1,
@@ -181,6 +183,7 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'get_meta' )
 			->with( OrderSync::META_PAYMENT_PARTS, true )
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- test helper; wp_json_encode() unavailable in unit tests.
 			->andReturn( (string) json_encode( array( 'oops' ) ) );
 
 		ob_start();

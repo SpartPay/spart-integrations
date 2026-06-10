@@ -39,6 +39,7 @@ final class OrderSyncTest extends TestCase {
 			}
 		);
 		Monkey\Functions\when( 'wp_json_encode' )->alias(
+			// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- We ARE the wp_json_encode stub.
 			static fn ( $data ) => json_encode( $data )
 		);
 	}
