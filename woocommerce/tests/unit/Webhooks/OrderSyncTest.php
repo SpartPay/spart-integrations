@@ -323,13 +323,12 @@ final class OrderSyncTest extends TestCase {
 		$this->addToAssertionCount( 1 );
 	}
 
-	public function test_order_created_persists_payment_parts_to_order_meta(): void {
+	public function test_order_created_persists_versioned_payment_parts_snapshot(): void {
 		$captured = null;
 		$order    = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'get_id' )->andReturn( 77 );
 		$order->shouldReceive( 'get_meta' )->andReturn( '' );
 		$order->shouldReceive( 'update_meta_data' )
-			->once()
 			->with(
 				OrderSync::META_PAYMENT_PARTS,
 				Mockery::on(
@@ -339,6 +338,8 @@ final class OrderSyncTest extends TestCase {
 					}
 				)
 			);
+		$order->shouldReceive( 'update_meta_data' )
+			->with( OrderSync::META_PAYMENT_PARTS_EVENT_AT, Mockery::type( 'string' ) );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply(
@@ -352,16 +353,88 @@ final class OrderSyncTest extends TestCase {
 
 		$decoded = json_decode( (string) $captured, true );
 		$this->assertIsArray( $decoded );
-		$this->assertCount( 1, $decoded );
-		$this->assertSame( 'pp-1', $decoded[0]['id'] );
-		$this->assertSame( 'captured', $decoded[0]['status'] );
-		$this->assertSame( 'Percent', $decoded[0]['amountType'] );
-		$this->assertTrue( $decoded[0]['isSparter'] );
-		$this->assertSame( '•••', $decoded[0]['payeeName'] );
-		$this->assertSame( '•••', $decoded[0]['payeeEmail'] );
-		$this->assertSame( 'EUR', $decoded[0]['total']['currency'] );
-		$this->assertEquals( 195.0, $decoded[0]['net']['amount'] );
-		$this->assertEquals( 5.0, $decoded[0]['fees']['platform'] );
+		$this->assertSame( 1, $decoded['v'] );
+		$this->assertCount( 1, $decoded['parts'] );
+
+		$part = $decoded['parts'][0];
+		$this->assertSame( 'pp-1', $part['id'] );
+		$this->assertSame( 'captured', $part['status'] );
+		$this->assertSame( 'Percent', $part['amountType'] );
+		$this->assertTrue( $part['isSparter'] );
+		$this->assertSame( '•••', $part['payeeName'] );
+		$this->assertSame( 'EUR', $part['total']['currency'] );
+		$this->assertEquals( 195.0, $part['net']['amount'] );
+		$this->assertEquals( 5.0, $part['fees']['platform'] );
+
+		// PII hard guard: the email field is never stored and no value carries an "@".
+		$this->assertArrayNotHasKey( 'payeeEmail', $part );
+		$this->assertStringNotContainsString( '@', (string) $captured );
+	}
+
+	public function test_sanitizes_payee_name_that_looks_like_an_email(): void {
+		$captured = null;
+		$order    = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 77 );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )
+			->with(
+				OrderSync::META_PAYMENT_PARTS,
+				Mockery::on(
+					static function ( $json ) use ( &$captured ): bool {
+						$captured = $json;
+						return true;
+					}
+				)
+			);
+		$order->shouldReceive( 'update_meta_data' )
+			->with( OrderSync::META_PAYMENT_PARTS_EVENT_AT, Mockery::type( 'string' ) );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply(
+			$order,
+			$this->order_event_with_parts(
+				EventType::OrderCreated,
+				'ORD-PII',
+				array( $this->payment_part( 'pp-x', 'captured', true, 'real.person@gmail.com' ) )
+			)
+		);
+
+		$decoded = json_decode( (string) $captured, true );
+		$this->assertSame( '•••', $decoded['parts'][0]['payeeName'] );
+		$this->assertStringNotContainsString( '@', (string) $captured );
+	}
+
+	public function test_redacts_plain_payee_name_that_is_not_the_mask(): void {
+		$captured = null;
+		$order    = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 79 );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )
+			->with(
+				OrderSync::META_PAYMENT_PARTS,
+				Mockery::on(
+					static function ( $json ) use ( &$captured ): bool {
+						$captured = $json;
+						return true;
+					}
+				)
+			);
+		$order->shouldReceive( 'update_meta_data' )
+			->with( OrderSync::META_PAYMENT_PARTS_EVENT_AT, Mockery::type( 'string' ) );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply(
+			$order,
+			$this->order_event_with_parts(
+				EventType::OrderCreated,
+				'ORD-NAME',
+				array( $this->payment_part( 'pp-n', 'captured', true, 'Beppe Brescia' ) )
+			)
+		);
+
+		$decoded = json_decode( (string) $captured, true );
+		$this->assertSame( '•••', $decoded['parts'][0]['payeeName'] );
+		$this->assertStringNotContainsString( 'Beppe', (string) $captured );
 	}
 
 	public function test_order_created_with_empty_parts_does_not_write_meta(): void {
@@ -381,8 +454,9 @@ final class OrderSyncTest extends TestCase {
 		$order->shouldReceive( 'get_id' )->andReturn( 79 );
 		$order->shouldReceive( 'get_meta' )->andReturn( '' );
 		$order->shouldReceive( 'update_meta_data' )
-			->once()
 			->with( OrderSync::META_PAYMENT_PARTS, Mockery::type( 'string' ) );
+		$order->shouldReceive( 'update_meta_data' )
+			->with( OrderSync::META_PAYMENT_PARTS_EVENT_AT, Mockery::type( 'string' ) );
 		$order->shouldReceive( 'payment_complete' )->once()->with( 'ORD-CMP-1' );
 
 		$sync = new OrderSync( $this->null_logger() );
@@ -392,6 +466,59 @@ final class OrderSyncTest extends TestCase {
 				EventType::OrderCompleted,
 				'ORD-CMP-1',
 				array( $this->payment_part( 'pp-2', 'captured', false ) )
+			)
+		);
+
+		$this->assertTrue( true );
+	}
+
+	public function test_stale_out_of_order_event_does_not_overwrite_newer_snapshot(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 80 );
+		// A newer snapshot was already stored (e.g. order.completed arrived first).
+		$order->shouldReceive( 'get_meta' )
+			->with( OrderSync::META_PAYMENT_PARTS_EVENT_AT, true )
+			->andReturn( '2026-06-09T10:00:00Z' );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldNotReceive( 'update_meta_data' );
+
+		$sync = new OrderSync( $this->null_logger() );
+		// order.created carries an OLDER createdAt and must not clobber the newer snapshot.
+		$sync->apply(
+			$order,
+			$this->order_event_with_parts(
+				EventType::OrderCreated,
+				'ORD-RE-1',
+				array( $this->payment_part( 'pp-3', 'authorized', true ) ),
+				'2026-06-09T09:00:00Z'
+			)
+		);
+
+		$this->assertTrue( true );
+	}
+
+	public function test_newer_event_overwrites_older_snapshot(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 81 );
+		$order->shouldReceive( 'get_meta' )
+			->with( OrderSync::META_PAYMENT_PARTS_EVENT_AT, true )
+			->andReturn( '2026-06-09T08:00:00Z' );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )
+			->once()
+			->with( OrderSync::META_PAYMENT_PARTS, Mockery::type( 'string' ) );
+		$order->shouldReceive( 'update_meta_data' )
+			->once()
+			->with( OrderSync::META_PAYMENT_PARTS_EVENT_AT, '2026-06-09T09:00:00Z' );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply(
+			$order,
+			$this->order_event_with_parts(
+				EventType::OrderCreated,
+				'ORD-RE-2',
+				array( $this->payment_part( 'pp-4', 'captured', true ) ),
+				'2026-06-09T09:00:00Z'
 			)
 		);
 
@@ -446,8 +573,8 @@ final class OrderSyncTest extends TestCase {
 		);
 	}
 
-	private function payment_part( string $id, string $status, bool $is_sparter ): WebhookPaymentPart {
-		$redacted = new WebhookContact( fullName: '•••', email: '•••' );
+	private function payment_part( string $id, string $status, bool $is_sparter, string $name = '•••' ): WebhookPaymentPart {
+		$redacted = new WebhookContact( fullName: $name, email: '•••' );
 		$charge   = new WebhookCharge(
 			net:   new WebhookMoney( currency: 'EUR', amount: 195.00 ),
 			total: new WebhookMoney( currency: 'EUR', amount: 200.00 ),
@@ -469,9 +596,16 @@ final class OrderSyncTest extends TestCase {
 	}
 
 	/**
+	 * Build an order.* event carrying payment parts.
+	 *
+	 * The order's own `createdAt` is held constant (it is a property of the
+	 * order resource and is identical across every lifecycle event), while the
+	 * event emission time ($event_created_at) varies per event — this mirrors
+	 * production and is what the recency gate must key off.
+	 *
 	 * @param array<int, WebhookPaymentPart> $parts
 	 */
-	private function order_event_with_parts( EventType $type, string $short_id, array $parts ): Event {
+	private function order_event_with_parts( EventType $type, string $short_id, array $parts, string $event_created_at = '2026-06-09T00:15:22Z' ): Event {
 		$money   = new WebhookMoney( currency: 'EUR', amount: 200.00 );
 		$contact = new WebhookContact( fullName: '•••', email: '•••' );
 		$data    = new OrderEnvelopeData(
@@ -491,7 +625,7 @@ final class OrderSyncTest extends TestCase {
 			id:            'evt-' . $short_id,
 			type:          $type->value,
 			knownType:     $type,
-			createdAt:     '2026-06-09T00:15:16Z',
+			createdAt:     $event_created_at,
 			apiVersion:    '1',
 			merchantAppId: 'app_1',
 			data:          $data,

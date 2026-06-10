@@ -46,6 +46,21 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		return $order;
 	}
 
+	private function order_with_versioned_parts( array $parts ): \WC_Order {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_meta' )
+			->with( OrderSync::META_PAYMENT_PARTS, true )
+			->andReturn(
+				(string) json_encode(
+					array(
+						'v'     => 1,
+						'parts' => $parts,
+					)
+				)
+			);
+		return $order;
+	}
+
 	private function sample_part( string $status = 'captured', bool $is_sparter = true ): array {
 		return array(
 			'id'         => 'pp-1',
@@ -54,7 +69,6 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 			'status'     => $status,
 			'isSparter'  => $is_sparter,
 			'payeeName'  => '•••',
-			'payeeEmail' => '•••',
 			'net'        => array(
 				'amount'   => 195.0,
 				'currency' => 'EUR',
@@ -122,6 +136,19 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		$this->assertStringContainsString( 'EUR 195.00', $html );
 		$this->assertStringContainsString( 'platform', $html );
 		$this->assertStringContainsString( 'EUR 5.00', $html );
+	}
+
+	public function test_render_lists_payees_from_versioned_snapshot(): void {
+		Functions\when( 'wc_get_order' )->returnArg( 1 );
+		$order = $this->order_with_versioned_parts( array( $this->sample_part() ) );
+
+		ob_start();
+		( new OrderPayeesMetaBox() )->render( $order );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( '•••', $html );
+		$this->assertStringContainsString( 'captured', $html );
+		$this->assertStringContainsString( 'EUR 200.00', $html );
 	}
 
 	public function test_render_empty_state_when_no_meta(): void {

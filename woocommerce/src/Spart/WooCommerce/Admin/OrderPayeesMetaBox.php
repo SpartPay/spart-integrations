@@ -129,9 +129,11 @@ final class OrderPayeesMetaBox {
 	/**
 	 * Read and validate the payment-parts snapshot from order meta.
 	 *
-	 * Returns only well-formed list entries (associative arrays); any decode
-	 * failure or malformed shape degrades to an empty list so the admin page
-	 * never fatals on corrupt data.
+	 * Accepts the versioned document written by current writers
+	 * (`{"v":1,"parts":[...]}`) as well as a legacy bare list of parts, so an
+	 * order persisted before the version wrapper landed still renders. Any
+	 * decode failure or malformed shape degrades to an empty list so the
+	 * admin page never fatals on corrupt data.
 	 *
 	 * @param \WC_Order $order The order being rendered.
 	 * @return array<int, array<string, mixed>>
@@ -143,8 +145,15 @@ final class OrderPayeesMetaBox {
 		}
 
 		$decoded = json_decode( $raw, true );
-		if ( ! is_array( $decoded ) || ! array_is_list( $decoded ) ) {
+		if ( ! is_array( $decoded ) ) {
 			return array();
+		}
+
+		if ( ! array_is_list( $decoded ) ) {
+			$decoded = isset( $decoded['parts'] ) && is_array( $decoded['parts'] ) ? $decoded['parts'] : array();
+			if ( ! array_is_list( $decoded ) ) {
+				return array();
+			}
 		}
 
 		$parts = array();
@@ -158,17 +167,14 @@ final class OrderPayeesMetaBox {
 	}
 
 	/**
-	 * Build the payee label, falling back to the masked email then a dash.
+	 * Build the payee label from the masked name, falling back to a dash. The
+	 * payee email is never stored, so there is no email fallback.
 	 *
 	 * @param array<string, mixed> $part A single payment-part entry.
 	 */
 	private function payee_label( array $part ): string {
 		$name = $this->string_field( $part, 'payeeName' );
-		if ( $name !== '' ) {
-			return $name;
-		}
-		$email = $this->string_field( $part, 'payeeEmail' );
-		return $email !== '' ? $email : '—';
+		return $name !== '' ? $name : '—';
 	}
 
 	/**

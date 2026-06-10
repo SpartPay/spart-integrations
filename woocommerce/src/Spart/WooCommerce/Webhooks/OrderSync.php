@@ -28,11 +28,29 @@ class OrderSync {
 
 	/**
 	 * Order meta key holding the redacted payment-parts (payees) snapshot as
-	 * a JSON-encoded array. Populated from any `order.*` event that carries a
-	 * non-empty `paymentParts` collection and read by the Spart payees meta
-	 * box. Payee name/email are already masked upstream — no PII is stored.
+	 * a versioned JSON document (`{"v":1,"parts":[...]}`). Populated from any
+	 * `order.*` event that carries a non-empty `paymentParts` collection and
+	 * read by the Spart payees meta box. No PII is stored: the payee email is
+	 * never persisted and the payee name is sanitised so the snapshot can
+	 * never contain an email address.
 	 */
 	public const META_PAYMENT_PARTS = '_spart_payment_parts';
+
+	/**
+	 * Companion meta key recording the `createdAt` of the event that produced
+	 * the current snapshot. Used to ignore out-of-order / replayed deliveries
+	 * so an older event can never overwrite a snapshot written by a newer one.
+	 */
+	public const META_PAYMENT_PARTS_EVENT_AT = '_spart_payment_parts_event_at';
+
+	/**
+	 * Schema version stamped into the stored snapshot so the reader can
+	 * evolve the shape later without misreading documents written today.
+	 */
+	private const SNAPSHOT_VERSION = 1;
+
+	/** Placeholder used whenever a payee label would otherwise carry PII. */
+	private const REDACTED_PLACEHOLDER = '•••';
 
 	/**
 	 * Wire OrderSync with its logger.
@@ -57,7 +75,7 @@ class OrderSync {
 		do_action( 'spart_webhook_before_apply', $order, $event );
 
 		if ( $event->data instanceof OrderEnvelopeData ) {
-			$this->maybe_store_payment_parts( $order, $event->data );
+			$this->maybe_store_payment_parts( $order, $event );
 		}
 
 		match ( $event->knownType ) {
@@ -76,29 +94,46 @@ class OrderSync {
 	 * Persist the redacted payment-parts snapshot to order meta.
 	 *
 	 * Called for every `order.*` event so the payees list stays current
-	 * regardless of which lifecycle event delivered it. An empty collection
-	 * is ignored so a later event lacking parts never erases a snapshot a
-	 * prior event already stored. The receiver saves the order after
-	 * {@see apply()} returns, so no explicit save is performed here.
+	 * regardless of which lifecycle event delivered it. Three rules keep the
+	 * snapshot correct and PII-free:
 	 *
-	 * @param \WC_Order         $order The resolved WC order.
-	 * @param OrderEnvelopeData $data  The order sub-envelope carrying parts.
+	 *  1. An empty collection is ignored so a later event lacking parts never
+	 *     erases a snapshot a prior event already stored.
+	 *  2. Out-of-order / replayed deliveries are ignored: an event whose
+	 *     `createdAt` is not newer than the one that wrote the current
+	 *     snapshot is skipped, so a late `order.created` cannot clobber the
+	 *     newer statuses from an `order.completed` that arrived first.
+	 *  3. No PII is stored — the payee email is dropped and the payee name is
+	 *     sanitised so the document can never contain an email address.
+	 *
+	 * The receiver saves the order after {@see apply()} returns, so no
+	 * explicit save is performed here.
+	 *
+	 * @param \WC_Order $order The resolved WC order.
+	 * @param Event     $event The verified SDK event (data: OrderEnvelopeData).
 	 */
-	private function maybe_store_payment_parts( \WC_Order $order, OrderEnvelopeData $data ): void {
+	private function maybe_store_payment_parts( \WC_Order $order, Event $event ): void {
+		$data = $event->data;
+		if ( ! $data instanceof OrderEnvelopeData ) {
+			return;
+		}
 		if ( array() === $data->paymentParts ) {
 			return;
 		}
 
-		$snapshot = array();
+		if ( $this->snapshot_is_stale( $order, $event ) ) {
+			return;
+		}
+
+		$parts = array();
 		foreach ( $data->paymentParts as $part ) {
-			$snapshot[] = array(
+			$parts[] = array(
 				'id'           => $part->id,
 				'amount'       => $part->amount,
 				'amountType'   => $part->amountType,
 				'status'       => $part->status,
 				'isSparter'    => $part->isSparter,
-				'payeeName'    => $part->payee->fullName,
-				'payeeEmail'   => $part->payee->email,
+				'payeeName'    => $this->sanitise_payee_name( $part->payee->fullName ),
 				'net'          => array(
 					'amount'   => $part->payeeCharge->net->amount,
 					'currency' => $part->payeeCharge->net->currency,
@@ -114,12 +149,92 @@ class OrderSync {
 			);
 		}//end foreach
 
-		$json = wp_json_encode( $snapshot );
+		$json = wp_json_encode(
+			array(
+				'v'     => self::SNAPSHOT_VERSION,
+				'parts' => $parts,
+			)
+		);
 		if ( false === $json ) {
+			$this->logger->warning(
+				'webhook.order.payment_parts.encode_failed',
+				$this->with_correlation(
+					$order,
+					array(
+						'wc_order_id' => $order->get_id(),
+						'event_id'    => $event->id,
+						'delivery_id' => $event->deliveryId,
+					)
+				)
+			);
 			return;
 		}
 
 		$order->update_meta_data( self::META_PAYMENT_PARTS, $json );
+		$order->update_meta_data( self::META_PAYMENT_PARTS_EVENT_AT, $event->createdAt );
+	}
+
+	/**
+	 * Decide whether the incoming event is older than (or a replay of) the one
+	 * that produced the snapshot currently on the order.
+	 *
+	 * The comparison keys off the event emission time ({@see Event::$createdAt},
+	 * the top-level webhook `createdAt`) — NOT the order's own `createdAt`,
+	 * which is constant across every `order.*` lifecycle event for the same
+	 * order and would freeze the snapshot at first arrival.
+	 *
+	 * Failure modes:
+	 *  - No prior snapshot: never stale (first write always wins).
+	 *  - A prior snapshot exists but either timestamp is unparseable: treated
+	 *    as stale (fail-closed) and logged, so a corrupt/hand-edited companion
+	 *    meta or a malformed incoming event cannot silently disable the gate
+	 *    and overwrite a known-good snapshot.
+	 *
+	 * @param \WC_Order $order The resolved WC order.
+	 * @param Event     $event The verified SDK event.
+	 */
+	private function snapshot_is_stale( \WC_Order $order, Event $event ): bool {
+		$stored = (string) $order->get_meta( self::META_PAYMENT_PARTS_EVENT_AT, true );
+		if ( '' === $stored ) {
+			return false;
+		}
+
+		$stored_ts   = strtotime( $stored );
+		$incoming_ts = strtotime( $event->createdAt );
+		if ( false === $stored_ts || false === $incoming_ts ) {
+			$this->logger->warning(
+				'webhook.order.payment_parts.timestamp_unparseable',
+				$this->with_correlation(
+					$order,
+					array(
+						'wc_order_id' => $order->get_id(),
+						'event_id'    => $event->id,
+						'delivery_id' => $event->deliveryId,
+						'stored_at'   => $stored,
+						'incoming_at' => $event->createdAt,
+					)
+				)
+			);
+			return true;
+		}
+
+		return $incoming_ts <= $stored_ts;
+	}
+
+	/**
+	 * Sanitise the payee display name so the stored snapshot can never carry
+	 * real identity. The backend masks payee identity to the redaction
+	 * placeholder before transmission, so the ONLY value we ever expect here
+	 * is that placeholder. This gate is a defence-in-depth measure at the
+	 * storage boundary: it whitelists the expected mask and redacts anything
+	 * else, so a backend regression that emits a real name (with or without an
+	 * "@") can never land PII in the WordPress database or the admin UI. This
+	 * mirrors the email handling, which is dropped entirely.
+	 *
+	 * @param string $name The payee name as received from the webhook.
+	 */
+	private function sanitise_payee_name( string $name ): string {
+		return self::REDACTED_PLACEHOLDER === $name ? $name : self::REDACTED_PLACEHOLDER;
 	}
 
 	/**
