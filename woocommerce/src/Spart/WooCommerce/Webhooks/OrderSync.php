@@ -11,6 +11,7 @@ namespace Spart\WooCommerce\Webhooks;
 
 use Spart\Sdk\Webhooks\Event;
 use Spart\Sdk\Webhooks\EventType;
+use Spart\Sdk\Webhooks\OrderEnvelopeData;
 use Spart\WooCommerce\Checkout\CheckoutSession;
 use Spart\WooCommerce\Logging\SpartLoggerInterface;
 
@@ -24,6 +25,14 @@ use Spart\WooCommerce\Logging\SpartLoggerInterface;
  * plugin adds).
  */
 class OrderSync {
+
+	/**
+	 * Order meta key holding the redacted payment-parts (payees) snapshot as
+	 * a JSON-encoded array. Populated from any `order.*` event that carries a
+	 * non-empty `paymentParts` collection and read by the Spart payees meta
+	 * box. Payee name/email are already masked upstream — no PII is stored.
+	 */
+	public const META_PAYMENT_PARTS = '_spart_payment_parts';
 
 	/**
 	 * Wire OrderSync with its logger.
@@ -47,8 +56,13 @@ class OrderSync {
 	public function apply( \WC_Order $order, Event $event ): void {
 		do_action( 'spart_webhook_before_apply', $order, $event );
 
+		if ( $event->data instanceof OrderEnvelopeData ) {
+			$this->maybe_store_payment_parts( $order, $event->data );
+		}
+
 		match ( $event->knownType ) {
 			EventType::IntentCreated     => $this->on_intent_created( $order, $event ),
+			EventType::OrderCreated      => $this->on_order_created( $order, $event ),
 			EventType::PaymentAuthorized => $this->on_payment_authorized( $order, $event ),
 			EventType::OrderCompleted    => $this->on_order_completed( $order, $event ),
 			EventType::OrderCanceled     => $this->on_order_canceled( $order ),
@@ -56,6 +70,78 @@ class OrderSync {
 			EventType::WebhookTest       => $this->on_unexpected_test_event( $order, $event ),
 			null                         => $this->on_unknown_event_type( $order, $event ),
 		};
+	}
+
+	/**
+	 * Persist the redacted payment-parts snapshot to order meta.
+	 *
+	 * Called for every `order.*` event so the payees list stays current
+	 * regardless of which lifecycle event delivered it. An empty collection
+	 * is ignored so a later event lacking parts never erases a snapshot a
+	 * prior event already stored. The receiver saves the order after
+	 * {@see apply()} returns, so no explicit save is performed here.
+	 *
+	 * @param \WC_Order         $order The resolved WC order.
+	 * @param OrderEnvelopeData $data  The order sub-envelope carrying parts.
+	 */
+	private function maybe_store_payment_parts( \WC_Order $order, OrderEnvelopeData $data ): void {
+		if ( array() === $data->paymentParts ) {
+			return;
+		}
+
+		$snapshot = array();
+		foreach ( $data->paymentParts as $part ) {
+			$snapshot[] = array(
+				'id'           => $part->id,
+				'amount'       => $part->amount,
+				'amountType'   => $part->amountType,
+				'status'       => $part->status,
+				'isSparter'    => $part->isSparter,
+				'payeeName'    => $part->payee->fullName,
+				'payeeEmail'   => $part->payee->email,
+				'net'          => array(
+					'amount'   => $part->payeeCharge->net->amount,
+					'currency' => $part->payeeCharge->net->currency,
+				),
+				'total'        => array(
+					'amount'   => $part->payeeCharge->total->amount,
+					'currency' => $part->payeeCharge->total->currency,
+				),
+				'fees'         => $part->payeeCharge->fees,
+				'authorizedAt' => $part->authorizedAt,
+				'capturedAt'   => $part->capturedAt,
+				'releasedAt'   => $part->releasedAt,
+			);
+		}//end foreach
+
+		$json = wp_json_encode( $snapshot );
+		if ( false === $json ) {
+			return;
+		}
+
+		$order->update_meta_data( self::META_PAYMENT_PARTS, $json );
+	}
+
+	/**
+	 * Log order creation without applying any WC status transition.
+	 *
+	 * The order already exists in WC (created during checkout); the payees
+	 * snapshot is persisted centrally by {@see maybe_store_payment_parts()}.
+	 *
+	 * @param \WC_Order $order The resolved WC order.
+	 * @param Event     $event The verified SDK event.
+	 */
+	private function on_order_created( \WC_Order $order, Event $event ): void {
+		$this->logger->info(
+			'webhook.order.created',
+			$this->with_correlation(
+				$order,
+				array(
+					'wc_order_id' => $order->get_id(),
+					'event_id'    => $event->id,
+				)
+			)
+		);
 	}
 
 	/**

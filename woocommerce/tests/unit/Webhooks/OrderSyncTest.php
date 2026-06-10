@@ -16,8 +16,10 @@ use Spart\Sdk\Webhooks\Event;
 use Spart\Sdk\Webhooks\EventType;
 use Spart\Sdk\Webhooks\OrderEnvelopeData;
 use Spart\Sdk\Webhooks\PaymentEnvelopeData;
+use Spart\Sdk\Webhooks\Models\WebhookCharge;
 use Spart\Sdk\Webhooks\Models\WebhookContact;
 use Spart\Sdk\Webhooks\Models\WebhookMoney;
+use Spart\Sdk\Webhooks\Models\WebhookPaymentPart;
 use Spart\WooCommerce\Checkout\CheckoutSession;
 use Spart\WooCommerce\Logging\SpartLoggerInterface;
 use Spart\WooCommerce\Webhooks\OrderSync;
@@ -35,6 +37,9 @@ final class OrderSyncTest extends TestCase {
 				$currency = is_array( $args ) && isset( $args['currency'] ) ? (string) $args['currency'] : 'USD';
 				return $currency . ' ' . number_format( (float) $amount, 2 );
 			}
+		);
+		Monkey\Functions\when( 'wp_json_encode' )->alias(
+			static fn ( $data ) => json_encode( $data )
 		);
 	}
 
@@ -318,6 +323,81 @@ final class OrderSyncTest extends TestCase {
 		$this->addToAssertionCount( 1 );
 	}
 
+	public function test_order_created_persists_payment_parts_to_order_meta(): void {
+		$captured = null;
+		$order    = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 77 );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )
+			->once()
+			->with(
+				OrderSync::META_PAYMENT_PARTS,
+				Mockery::on(
+					static function ( $json ) use ( &$captured ): bool {
+						$captured = $json;
+						return is_string( $json );
+					}
+				)
+			);
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply(
+			$order,
+			$this->order_event_with_parts(
+				EventType::OrderCreated,
+				'ORD-CR-1',
+				array( $this->payment_part( 'pp-1', 'captured', true ) )
+			)
+		);
+
+		$decoded = json_decode( (string) $captured, true );
+		$this->assertIsArray( $decoded );
+		$this->assertCount( 1, $decoded );
+		$this->assertSame( 'pp-1', $decoded[0]['id'] );
+		$this->assertSame( 'captured', $decoded[0]['status'] );
+		$this->assertSame( 'Percent', $decoded[0]['amountType'] );
+		$this->assertTrue( $decoded[0]['isSparter'] );
+		$this->assertSame( '•••', $decoded[0]['payeeName'] );
+		$this->assertSame( '•••', $decoded[0]['payeeEmail'] );
+		$this->assertSame( 'EUR', $decoded[0]['total']['currency'] );
+		$this->assertEquals( 195.0, $decoded[0]['net']['amount'] );
+		$this->assertEquals( 5.0, $decoded[0]['fees']['platform'] );
+	}
+
+	public function test_order_created_with_empty_parts_does_not_write_meta(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 78 );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldNotReceive( 'update_meta_data' );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply( $order, $this->order_event( EventType::OrderCreated, 'ORD-CR-2' ) );
+
+		$this->assertTrue( true );
+	}
+
+	public function test_order_completed_also_persists_payment_parts(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 79 );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )
+			->once()
+			->with( OrderSync::META_PAYMENT_PARTS, Mockery::type( 'string' ) );
+		$order->shouldReceive( 'payment_complete' )->once()->with( 'ORD-CMP-1' );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply(
+			$order,
+			$this->order_event_with_parts(
+				EventType::OrderCompleted,
+				'ORD-CMP-1',
+				array( $this->payment_part( 'pp-2', 'captured', false ) )
+			)
+		);
+
+		$this->assertTrue( true );
+	}
+
 	private function null_logger(): SpartLoggerInterface {
 		$logger = Mockery::mock( SpartLoggerInterface::class );
 		$logger->shouldIgnoreMissing();
@@ -358,6 +438,60 @@ final class OrderSyncTest extends TestCase {
 			type:          $type->value,
 			knownType:     $type,
 			createdAt:     '2026-05-13T10:00:00Z',
+			apiVersion:    '1',
+			merchantAppId: 'app_1',
+			data:          $data,
+			deliveryId:    'd-' . $short_id,
+			attempt:       1,
+		);
+	}
+
+	private function payment_part( string $id, string $status, bool $is_sparter ): WebhookPaymentPart {
+		$redacted = new WebhookContact( fullName: '•••', email: '•••' );
+		$charge   = new WebhookCharge(
+			net:   new WebhookMoney( currency: 'EUR', amount: 195.00 ),
+			total: new WebhookMoney( currency: 'EUR', amount: 200.00 ),
+			fees:  array( 'platform' => 5.00 ),
+		);
+
+		return new WebhookPaymentPart(
+			id:           $id,
+			amount:       50.00,
+			amountType:   'Percent',
+			status:       $status,
+			isSparter:    $is_sparter,
+			payee:        $redacted,
+			payeeCharge:  $charge,
+			authorizedAt: '2026-06-09T00:15:16Z',
+			capturedAt:   '2026-06-09T00:15:18Z',
+			releasedAt:   null,
+		);
+	}
+
+	/**
+	 * @param array<int, WebhookPaymentPart> $parts
+	 */
+	private function order_event_with_parts( EventType $type, string $short_id, array $parts ): Event {
+		$money   = new WebhookMoney( currency: 'EUR', amount: 200.00 );
+		$contact = new WebhookContact( fullName: '•••', email: '•••' );
+		$data    = new OrderEnvelopeData(
+			shortId:       $short_id,
+			originalTotal: $money,
+			finalTotal:    $money,
+			lineItems:     array(),
+			sparter:       $contact,
+			sessionId:     'spart-wc-abcd1234-99',
+			status:        'placed',
+			countryCode:   'IT',
+			createdAt:     '2026-06-09T00:15:16Z',
+			paymentParts:  $parts,
+		);
+
+		return new Event(
+			id:            'evt-' . $short_id,
+			type:          $type->value,
+			knownType:     $type,
+			createdAt:     '2026-06-09T00:15:16Z',
 			apiVersion:    '1',
 			merchantAppId: 'app_1',
 			data:          $data,
