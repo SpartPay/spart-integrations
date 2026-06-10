@@ -11,6 +11,7 @@ namespace Spart\WooCommerce;
 
 use Spart\Sdk\Webhooks\SignatureVerifier;
 use Spart\WooCommerce\Admin\DestroyOrdersUpgradeNotice;
+use Spart\WooCommerce\Admin\OrderPayeesMetaBox;
 use Spart\WooCommerce\Admin\OrderWebhookDeliveriesMetaBox;
 use Spart\WooCommerce\Admin\WcVersionFloorNotice;
 use Spart\WooCommerce\Admin\WebhookDeliveriesListPage;
@@ -259,6 +260,7 @@ final class Plugin {
 		( new WcVersionFloorNotice() )->register();
 		( new WebhookDeliveriesListPage( self::delivery_repository() ) )->register();
 		( new OrderWebhookDeliveriesMetaBox( self::delivery_repository() ) )->register();
+		( new OrderPayeesMetaBox() )->register();
 
 		\add_action(
 			'woocommerce_blocks_payment_method_type_registration',

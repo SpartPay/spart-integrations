@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SDK_REF: 9a98df50f46db61314578ce03d567767049ff0a2  # spart-sdks sdk-v0.1.0 (immutable SHA; bump deliberately)
+  SDK_REF: 87898155915ef446f195660df5c47c9b0db27c5d  # spart-sdks feat/webhook-payment-parts (order.created + paymentParts); re-pin to the released tag once spartpay/spart-sdks#14 is merged
 
 jobs:
   php-lint:
