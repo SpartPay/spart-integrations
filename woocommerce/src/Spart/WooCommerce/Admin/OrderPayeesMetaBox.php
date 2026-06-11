@@ -113,7 +113,8 @@ final class OrderPayeesMetaBox {
 		foreach ( $parts as $part ) {
 			echo '<tr>';
 			echo '<td>' . \esc_html( $this->payee_label( $part ) ) . '</td>';
-			echo '<td>' . \esc_html( $this->string_field( $part, 'status' ) ) . '</td>';
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- status_html() returns a fixed-palette inline-styled span; its label is esc_html__()/esc_html()-escaped and colours are esc_attr()-escaped literals.
+			echo '<td>' . $this->status_html( $part ) . '</td>';
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- money() returns wc_price() output (pre-escaped HTML).
 			echo '<td>' . $this->money( $part, 'total' ) . '</td>';
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- money() returns wc_price() output (pre-escaped HTML).
@@ -175,6 +176,55 @@ final class OrderPayeesMetaBox {
 	private function payee_label( array $part ): string {
 		$name = $this->string_field( $part, 'payeeName' );
 		return $name !== '' ? $name : '—';
+	}
+
+	/**
+	 * Render a merchant-friendly status pill for a payment part.
+	 *
+	 * The wire status vocabulary (`none`/`authorized`/`captured`/`released`)
+	 * is collapsed into the three states a merchant cares about:
+	 *  - `none`                     → Pending  (neutral grey)
+	 *  - `authorized` | `captured`  → Paid     (green)
+	 *  - `released`                 → Canceled (amber)
+	 * An unrecognised value falls back to the raw status in a neutral pill so
+	 * a future backend state is still surfaced rather than hidden.
+	 *
+	 * @param array<string, mixed> $part A single payment-part entry.
+	 */
+	private function status_html( array $part ): string {
+		$raw = $this->string_field( $part, 'status' );
+
+		switch ( strtolower( $raw ) ) {
+			case '':
+			case 'none':
+				$label = \esc_html__( 'Pending', 'spart-woocommerce' );
+				$bg    = '#f0f0f1';
+				$fg    = '#3c434a';
+				break;
+			case 'authorized':
+			case 'captured':
+				$label = \esc_html__( 'Paid', 'spart-woocommerce' );
+				$bg    = '#edfaef';
+				$fg    = '#00650f';
+				break;
+			case 'released':
+				$label = \esc_html__( 'Canceled', 'spart-woocommerce' );
+				$bg    = '#fcf3e5';
+				$fg    = '#8a5700';
+				break;
+			default:
+				$label = \esc_html( $raw );
+				$bg    = '#f0f0f1';
+				$fg    = '#3c434a';
+				break;
+		}//end switch
+
+		return sprintf(
+			'<span style="display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600;background:%s;color:%s;">%s</span>',
+			\esc_attr( $bg ),
+			\esc_attr( $fg ),
+			$label
+		);
 	}
 
 	/**

@@ -133,7 +133,7 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		$this->assertStringContainsString( '•••', $html );
-		$this->assertStringContainsString( 'captured', $html );
+		$this->assertStringContainsString( 'Paid', $html );
 		$this->assertStringContainsString( 'EUR 200.00', $html );
 		$this->assertStringContainsString( 'EUR 195.00', $html );
 		$this->assertStringContainsString( 'platform', $html );
@@ -149,8 +149,55 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		$this->assertStringContainsString( '•••', $html );
-		$this->assertStringContainsString( 'captured', $html );
+		$this->assertStringContainsString( 'Paid', $html );
 		$this->assertStringContainsString( 'EUR 200.00', $html );
+	}
+
+	/**
+	 * @return iterable<string, array{0: string, 1: string}>
+	 */
+	public static function collapsed_status_provider(): iterable {
+		yield 'none maps to Pending'       => array( 'none', 'Pending' );
+		yield 'authorized maps to Paid'    => array( 'authorized', 'Paid' );
+		yield 'captured maps to Paid'      => array( 'captured', 'Paid' );
+		yield 'released maps to Canceled'  => array( 'released', 'Canceled' );
+	}
+
+	/**
+	 * @dataProvider collapsed_status_provider
+	 */
+	public function test_render_collapses_status_to_merchant_label( string $wire_status, string $expected_label ): void {
+		Functions\when( 'wc_get_order' )->returnArg( 1 );
+		$order = $this->order_with_versioned_parts( array( $this->sample_part( $wire_status ) ) );
+
+		ob_start();
+		( new OrderPayeesMetaBox() )->render( $order );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( $expected_label, $html );
+	}
+
+	public function test_render_does_not_leak_raw_wire_status_for_known_states(): void {
+		Functions\when( 'wc_get_order' )->returnArg( 1 );
+		$order = $this->order_with_versioned_parts( array( $this->sample_part( 'released' ) ) );
+
+		ob_start();
+		( new OrderPayeesMetaBox() )->render( $order );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringNotContainsString( 'released', $html );
+		$this->assertStringContainsString( 'Canceled', $html );
+	}
+
+	public function test_render_falls_back_to_raw_status_for_unknown_state(): void {
+		Functions\when( 'wc_get_order' )->returnArg( 1 );
+		$order = $this->order_with_versioned_parts( array( $this->sample_part( 'mystery' ) ) );
+
+		ob_start();
+		( new OrderPayeesMetaBox() )->render( $order );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'mystery', $html );
 	}
 
 	public function test_render_empty_state_when_no_meta(): void {
