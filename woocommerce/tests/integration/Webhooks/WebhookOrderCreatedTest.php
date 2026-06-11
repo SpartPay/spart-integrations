@@ -26,16 +26,16 @@ final class WebhookOrderCreatedTest extends WC_Spart_IntegrationTestCase {
 		$payload                          = $this->order_envelope_payload( $order, 'placed' );
 		$payload['order']['paymentParts'] = array(
 			array(
-				'id'          => 'pp-int-1',
-				'amount'      => 50.0,
-				'amountType'  => 'Percent',
-				'status'      => 'captured',
-				'isSparter'   => true,
-				'payee'       => array(
+				'id'           => 'pp-int-1',
+				'amount'       => 50.0,
+				'amountType'   => 'Percent',
+				'status'       => 'captured',
+				'isSparter'    => true,
+				'payee'        => array(
 					'fullName' => 'Beppe Brescia',
 					'email'    => 'obiuan+spartwp@gmail.com',
 				),
-				'payeeCharge' => array(
+				'payeeCharge'  => array(
 					'net'   => array(
 						'amount'   => 195.0,
 						'currency' => 'EUR',
@@ -46,6 +46,10 @@ final class WebhookOrderCreatedTest extends WC_Spart_IntegrationTestCase {
 					),
 					'fees'  => array( 'platform' => 5.0 ),
 				),
+				// A captured part carries both lifecycle timestamps; the stored
+				// status is derived from them, not from the wire status string.
+				'authorizedAt' => gmdate( 'c' ),
+				'capturedAt'   => gmdate( 'c' ),
 			),
 		);
 
