@@ -15,6 +15,7 @@ use Spart\Sdk\Webhooks\EventType;
 use Spart\Sdk\Webhooks\IntentEnvelopeData;
 use Spart\Sdk\Webhooks\OrderEnvelopeData;
 use Spart\Sdk\Webhooks\PaymentEnvelopeData;
+use Spart\Sdk\Webhooks\PaymentPartReleasedEnvelopeData;
 use Spart\WooCommerce\Checkout\SessionIdComposer;
 
 /**
@@ -100,8 +101,8 @@ class WpOrderResolver {
 	/**
 	 * Extract sessionId from any of the SDK envelope DTOs that carry one.
 	 *
-	 * Intent, Order, and Payment envelopes all expose a nullable
-	 * `sessionId` property. TestEnvelopeData has no sessionId, but the
+	 * Intent, Order, Payment, and PaymentPartReleased envelopes all expose a
+	 * nullable `sessionId` property. TestEnvelopeData has no sessionId, but the
 	 * webhook.test branch is short-circuited above so it never reaches
 	 * this helper. Unknown event types likewise return early.
 	 *
@@ -111,10 +112,11 @@ class WpOrderResolver {
 	 */
 	private function extract_session_id( ?EnvelopeData $data ): ?string {
 		return match ( true ) {
-			$data instanceof IntentEnvelopeData  => $data->sessionId,
-			$data instanceof OrderEnvelopeData   => $data->sessionId,
-			$data instanceof PaymentEnvelopeData => $data->sessionId,
-			default                              => null,
+			$data instanceof IntentEnvelopeData              => $data->sessionId,
+			$data instanceof OrderEnvelopeData               => $data->sessionId,
+			$data instanceof PaymentEnvelopeData             => $data->sessionId,
+			$data instanceof PaymentPartReleasedEnvelopeData => $data->sessionId,
+			default                                          => null,
 		};
 	}
 }

@@ -20,6 +20,7 @@ use Spart\Sdk\Webhooks\Models\WebhookContact;
 use Spart\Sdk\Webhooks\Models\WebhookMoney;
 use Spart\Sdk\Webhooks\OrderEnvelopeData;
 use Spart\Sdk\Webhooks\PaymentEnvelopeData;
+use Spart\Sdk\Webhooks\PaymentPartReleasedEnvelopeData;
 use Spart\Sdk\Webhooks\TestEnvelopeData;
 use Spart\WooCommerce\Webhooks\ResolverResult;
 use Spart\WooCommerce\Webhooks\WpOrderResolver;
@@ -176,6 +177,21 @@ final class WpOrderResolverTest extends TestCase {
 		$this->assertSame( $order, $result );
 	}
 
+	public function test_payment_part_released_envelope_session_id_is_extracted(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_status' )->once()->andReturn( 'pending' );
+
+		Functions\expect( 'wc_get_order' )
+			->once()
+			->with( 21 )
+			->andReturn( $order );
+
+		$event  = $this->payment_part_released_event( 'spart-wc-abcd1234-21' );
+		$result = ( new WpOrderResolver( self::SITE_TOKEN ) )->resolve( $event );
+
+		$this->assertSame( $order, $result );
+	}
+
 	private function test_event(): Event {
 		return new Event(
 			id:            'evt-test',
@@ -242,6 +258,31 @@ final class WpOrderResolverTest extends TestCase {
 			merchantAppId: 'app_1',
 			data:          $data,
 			deliveryId:    'd-pay',
+			attempt:       1,
+		);
+	}
+
+	private function payment_part_released_event( string $session_id ): Event {
+		$money   = new WebhookMoney( currency: 'USD', amount: 25.00 );
+		$contact = new WebhookContact( fullName: 'Payee', email: 'payee@example.com' );
+		$data    = new PaymentPartReleasedEnvelopeData(
+			orderShortId:   'ORD-1',
+			sessionId:      $session_id,
+			paymentPartId:  'pp-1',
+			amountReleased: $money,
+			payee:          $contact,
+			releasedAt:     '2026-05-13T10:00:00Z',
+		);
+
+		return new Event(
+			id:            'evt-rel',
+			type:          'order.payment_part_released',
+			knownType:     EventType::PaymentPartReleased,
+			createdAt:     '2026-05-13T10:00:00Z',
+			apiVersion:    '1',
+			merchantAppId: 'app_1',
+			data:          $data,
+			deliveryId:    'd-rel',
 			attempt:       1,
 		);
 	}
