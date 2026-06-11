@@ -12,6 +12,8 @@ namespace Spart\WooCommerce\Webhooks;
 use Spart\Sdk\Webhooks\Event;
 use Spart\Sdk\Webhooks\EventType;
 use Spart\Sdk\Webhooks\OrderEnvelopeData;
+use Spart\Sdk\Webhooks\PaymentEnvelopeData;
+use Spart\Sdk\Webhooks\PaymentPartReleasedEnvelopeData;
 use Spart\WooCommerce\Checkout\CheckoutSession;
 use Spart\WooCommerce\Logging\SpartLoggerInterface;
 
@@ -35,13 +37,6 @@ class OrderSync {
 	 * never contain an email address.
 	 */
 	public const META_PAYMENT_PARTS = '_spart_payment_parts';
-
-	/**
-	 * Companion meta key recording the `createdAt` of the event that produced
-	 * the current snapshot. Used to ignore out-of-order / replayed deliveries
-	 * so an older event can never overwrite a snapshot written by a newer one.
-	 */
-	public const META_PAYMENT_PARTS_EVENT_AT = '_spart_payment_parts_event_at';
 
 	/**
 	 * Schema version stamped into the stored snapshot so the reader can
@@ -82,6 +77,7 @@ class OrderSync {
 			EventType::IntentCreated     => $this->on_intent_created( $order, $event ),
 			EventType::OrderCreated      => $this->on_order_created( $order, $event ),
 			EventType::PaymentAuthorized => $this->on_payment_authorized( $order, $event ),
+			EventType::PaymentPartReleased => $this->on_payment_part_released( $order, $event ),
 			EventType::OrderCompleted    => $this->on_order_completed( $order, $event ),
 			EventType::OrderCanceled     => $this->on_order_canceled( $order ),
 			EventType::OrderExpired      => $this->on_order_expired( $order ),
@@ -94,17 +90,22 @@ class OrderSync {
 	 * Persist the redacted payment-parts snapshot to order meta.
 	 *
 	 * Called for every `order.*` event so the payees list stays current
-	 * regardless of which lifecycle event delivered it. Three rules keep the
-	 * snapshot correct and PII-free:
+	 * regardless of which lifecycle event delivered it. The snapshot merges
+	 * with any already-stored parts rather than replacing them:
 	 *
 	 *  1. An empty collection is ignored so a later event lacking parts never
 	 *     erases a snapshot a prior event already stored.
-	 *  2. Out-of-order / replayed deliveries are ignored: an event whose
-	 *     `createdAt` is not newer than the one that wrote the current
-	 *     snapshot is skipped, so a late `order.created` cannot clobber the
-	 *     newer statuses from an `order.completed` that arrived first.
+	 *  2. Per-part lifecycle timestamps are coalesced (an incoming timestamp
+	 *     is only ever set, never cleared) and the status is derived from those
+	 *     timestamps. This makes the snapshot order-independent: a late event
+	 *     can never downgrade a part whose status has already advanced, so no
+	 *     recency watermark is needed.
 	 *  3. No PII is stored — the payee email is dropped and the payee name is
 	 *     sanitised so the document can never contain an email address.
+	 *
+	 * Concurrency: this is a read-modify-write on order meta and therefore
+	 * last-writer-wins, the same as before. Any transient lost update self-heals
+	 * on the next full snapshot; no locking is added.
 	 *
 	 * The receiver saves the order after {@see apply()} returns, so no
 	 * explicit save is performed here.
@@ -121,17 +122,19 @@ class OrderSync {
 			return;
 		}
 
-		if ( $this->snapshot_is_stale( $order, $event ) ) {
-			return;
-		}
+		$current = $this->read_parts_map( $order );
 
-		$parts = array();
 		foreach ( $data->paymentParts as $part ) {
-			$parts[] = array(
+			$existing      = $current[ $part->id ] ?? null;
+			$authorized_at = $this->coalesce_ts( $existing['authorizedAt'] ?? null, $part->authorizedAt );
+			$captured_at   = $this->coalesce_ts( $existing['capturedAt'] ?? null, $part->capturedAt );
+			$released_at   = $this->coalesce_ts( $existing['releasedAt'] ?? null, $part->releasedAt );
+
+			$current[ $part->id ] = array(
 				'id'           => $part->id,
 				'amount'       => $part->amount,
 				'amountType'   => $part->amountType,
-				'status'       => $part->status,
+				'status'       => $this->derive_status( $authorized_at, $captured_at, $released_at ),
 				'isSparter'    => $part->isSparter,
 				'payeeName'    => $this->sanitise_payee_name( $part->payee->fullName ),
 				'net'          => array(
@@ -143,16 +146,98 @@ class OrderSync {
 					'currency' => $part->payeeCharge->total->currency,
 				),
 				'fees'         => $part->payeeCharge->fees,
-				'authorizedAt' => $part->authorizedAt,
-				'capturedAt'   => $part->capturedAt,
-				'releasedAt'   => $part->releasedAt,
+				'authorizedAt' => $authorized_at,
+				'capturedAt'   => $captured_at,
+				'releasedAt'   => $released_at,
 			);
 		}//end foreach
 
+		$this->write_parts_map( $order, $event, $current );
+	}
+
+	/**
+	 * Derive the canonical part status from its lifecycle timestamps.
+	 * Precedence: captured > released > authorized > none. Deriving from
+	 * timestamps (not the wire status string) makes the snapshot
+	 * order-independent: merges only ever set timestamps and never clear
+	 * them, so the derived status can advance but never regress. This
+	 * reproduces the backend PaymentPart.Statuses enum exactly.
+	 *
+	 * @param string|null $authorized_at ISO 8601 or null.
+	 * @param string|null $captured_at   ISO 8601 or null.
+	 * @param string|null $released_at   ISO 8601 or null.
+	 */
+	private function derive_status( ?string $authorized_at, ?string $captured_at, ?string $released_at ): string {
+		if ( null !== $captured_at && '' !== $captured_at ) {
+			return 'captured';
+		}
+		if ( null !== $released_at && '' !== $released_at ) {
+			return 'released';
+		}
+		if ( null !== $authorized_at && '' !== $authorized_at ) {
+			return 'authorized';
+		}
+		return 'none';
+	}
+
+	/**
+	 * Coalesce two nullable timestamps, preferring a non-empty incoming value
+	 * but never overwriting an existing value with null/empty. Idempotent on
+	 * replay (equal values are a no-op).
+	 *
+	 * @param string|null $existing Current stored timestamp.
+	 * @param string|null $incoming Incoming timestamp.
+	 */
+	private function coalesce_ts( ?string $existing, ?string $incoming ): ?string {
+		if ( null !== $incoming && '' !== $incoming ) {
+			return $incoming;
+		}
+		return ( null !== $existing && '' !== $existing ) ? $existing : null;
+	}
+
+	/**
+	 * Read the current snapshot parts as an id-keyed map. Tolerates the
+	 * versioned document (`{"v":1,"parts":[...]}`) and a legacy bare list.
+	 * Returns an empty map when no/invalid snapshot exists.
+	 *
+	 * @param \WC_Order $order The resolved WC order.
+	 * @return array<string, array<string, mixed>>
+	 */
+	private function read_parts_map( \WC_Order $order ): array {
+		$raw = $order->get_meta( self::META_PAYMENT_PARTS, true );
+		if ( ! is_string( $raw ) || '' === $raw ) {
+			return array();
+		}
+		$decoded = json_decode( $raw, true );
+		if ( ! is_array( $decoded ) ) {
+			return array();
+		}
+		$list = array_is_list( $decoded )
+			? $decoded
+			: ( ( isset( $decoded['parts'] ) && is_array( $decoded['parts'] ) ) ? $decoded['parts'] : array() );
+
+		$map = array();
+		foreach ( $list as $entry ) {
+			if ( is_array( $entry ) && isset( $entry['id'] ) && is_string( $entry['id'] ) ) {
+				$map[ $entry['id'] ] = $entry;
+			}
+		}
+		return $map;
+	}
+
+	/**
+	 * Encode and persist the merged parts map as the versioned snapshot.
+	 * Logs and skips on json-encode failure (never writes a partial doc).
+	 *
+	 * @param \WC_Order                           $order The resolved WC order.
+	 * @param Event                               $event The verified SDK event.
+	 * @param array<string, array<string, mixed>> $map   Merged parts by id.
+	 */
+	private function write_parts_map( \WC_Order $order, Event $event, array $map ): void {
 		$json = wp_json_encode(
 			array(
 				'v'     => self::SNAPSHOT_VERSION,
-				'parts' => $parts,
+				'parts' => array_values( $map ),
 			)
 		);
 		if ( false === $json ) {
@@ -169,56 +254,50 @@ class OrderSync {
 			);
 			return;
 		}
-
 		$order->update_meta_data( self::META_PAYMENT_PARTS, $json );
-		$order->update_meta_data( self::META_PAYMENT_PARTS_EVENT_AT, $event->createdAt );
 	}
 
 	/**
-	 * Decide whether the incoming event is older than (or a replay of) the one
-	 * that produced the snapshot currently on the order.
+	 * Patch a single stored part's lifecycle timestamp by id and re-derive its
+	 * status. Matches purely by payment-part id — the event's payee is NEVER
+	 * read or stored (PII guarantee). No-op (debug log) when no snapshot exists
+	 * yet or the id is unknown: a patch lacks the payee-charge/split data needed
+	 * to synthesise a renderable row, and the eventual full snapshot will carry
+	 * correct state.
 	 *
-	 * The comparison keys off the event emission time ({@see Event::$createdAt},
-	 * the top-level webhook `createdAt`) — NOT the order's own `createdAt`,
-	 * which is constant across every `order.*` lifecycle event for the same
-	 * order and would freeze the snapshot at first arrival.
-	 *
-	 * Failure modes:
-	 *  - No prior snapshot: never stale (first write always wins).
-	 *  - A prior snapshot exists but either timestamp is unparseable: treated
-	 *    as stale (fail-closed) and logged, so a corrupt/hand-edited companion
-	 *    meta or a malformed incoming event cannot silently disable the gate
-	 *    and overwrite a known-good snapshot.
-	 *
-	 * @param \WC_Order $order The resolved WC order.
-	 * @param Event     $event The verified SDK event.
+	 * @param \WC_Order $order    The resolved WC order.
+	 * @param Event     $event    The verified SDK event.
+	 * @param string    $part_id  The payment-part id to patch.
+	 * @param string    $ts_field One of 'authorizedAt' | 'releasedAt'.
+	 * @param string    $ts_value The ISO 8601 timestamp from the event.
 	 */
-	private function snapshot_is_stale( \WC_Order $order, Event $event ): bool {
-		$stored = (string) $order->get_meta( self::META_PAYMENT_PARTS_EVENT_AT, true );
-		if ( '' === $stored ) {
-			return false;
-		}
-
-		$stored_ts   = strtotime( $stored );
-		$incoming_ts = strtotime( $event->createdAt );
-		if ( false === $stored_ts || false === $incoming_ts ) {
-			$this->logger->warning(
-				'webhook.order.payment_parts.timestamp_unparseable',
+	private function patch_part_timestamp( \WC_Order $order, Event $event, string $part_id, string $ts_field, string $ts_value ): void {
+		$map = $this->read_parts_map( $order );
+		if ( ! isset( $map[ $part_id ] ) ) {
+			$this->logger->debug(
+				'webhook.order.payment_parts.patch_no_part',
 				$this->with_correlation(
 					$order,
 					array(
 						'wc_order_id' => $order->get_id(),
 						'event_id'    => $event->id,
-						'delivery_id' => $event->deliveryId,
-						'stored_at'   => $stored,
-						'incoming_at' => $event->createdAt,
+						'part_id'     => $part_id,
 					)
 				)
 			);
-			return true;
+			return;
 		}
 
-		return $incoming_ts <= $stored_ts;
+		$part              = $map[ $part_id ];
+		$part[ $ts_field ] = $this->coalesce_ts( $part[ $ts_field ] ?? null, $ts_value );
+		$part['status']    = $this->derive_status(
+			$part['authorizedAt'] ?? null,
+			$part['capturedAt'] ?? null,
+			$part['releasedAt'] ?? null
+		);
+		$map[ $part_id ]   = $part;
+
+		$this->write_parts_map( $order, $event, $map );
 	}
 
 	/**
@@ -317,12 +396,10 @@ class OrderSync {
 	 * @param Event     $event The verified SDK event (data: PaymentEnvelopeData).
 	 */
 	private function on_payment_authorized( \WC_Order $order, Event $event ): void {
-		/**
-		 * PHPStan: narrow the event data to its concrete type.
-		 *
-		 * @var \Spart\Sdk\Webhooks\PaymentEnvelopeData $data
-		 */
 		$data = $event->data;
+		if ( ! $data instanceof PaymentEnvelopeData ) {
+			return;
+		}
 		$order->add_order_note(
 			sprintf(
 				/* translators: 1: payment part ID, 2: formatted amount. */
@@ -334,6 +411,34 @@ class OrderSync {
 				)
 			)
 		);
+		$this->patch_part_timestamp( $order, $event, $data->paymentPartId, 'authorizedAt', $data->authorizedAt );
+	}
+
+	/**
+	 * Mark a payment part as released (authorization voided) when Spart reports
+	 * it. Adds an audit note and patches the snapshot. Never reads the event's
+	 * payee — identity stays the masked value already stored from order.created.
+	 *
+	 * @param \WC_Order $order The resolved WC order.
+	 * @param Event     $event The verified SDK event (data: PaymentPartReleasedEnvelopeData).
+	 */
+	private function on_payment_part_released( \WC_Order $order, Event $event ): void {
+		$data = $event->data;
+		if ( ! $data instanceof PaymentPartReleasedEnvelopeData ) {
+			return;
+		}
+		$order->add_order_note(
+			sprintf(
+				/* translators: 1: payment part ID, 2: formatted amount. */
+				__( 'Spart released payment %1$s for %2$s', 'spart-woocommerce' ),
+				$data->paymentPartId,
+				wc_price(
+					(float) $data->amountReleased->amount,
+					array( 'currency' => $data->amountReleased->currency )
+				)
+			)
+		);
+		$this->patch_part_timestamp( $order, $event, $data->paymentPartId, 'releasedAt', $data->releasedAt );
 	}
 
 	/**

@@ -8,6 +8,18 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Live per-payee payment status on the order details page.** The **Spart
+  payees** meta box now reflects each payee's *current* payment status as
+  webhook events arrive, instead of freezing the status captured at
+  `order.created`. Status is derived from the per-part authorize/capture/
+  release timestamps and only ever advances, so out-of-order or replayed
+  deliveries can never downgrade a payee's status. Each `payment.authorized`
+  and the new `order.payment_part_released` event patches just the affected
+  payee. Statuses are shown using a merchant-friendly collapsed vocabulary —
+  **Pending** (grey), **Paid** (green), **Canceled** (amber) — rather than the
+  raw internal status string. As before, no payee name or email is ever read
+  or stored; names remain masked to `•••`.
+
 - **Destroy-on-failure for the WooCommerce gateway.** When a Spart checkout
   attempt fails (network, validation, auth, server, or timeout), the plugin
   now destroys the pending WooCommerce order that was created moments earlier
