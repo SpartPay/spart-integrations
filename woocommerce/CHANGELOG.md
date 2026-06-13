@@ -17,8 +17,11 @@ versions follow [Semantic Versioning](https://semver.org/).
   and the new `order.payment_part_released` event patches just the affected
   payee. Statuses are shown using a merchant-friendly collapsed vocabulary —
   **Pending** (grey), **Paid** (green), **Canceled** (amber) — rather than the
-  raw internal status string. As before, no payee name or email is ever read
-  or stored; names remain masked to `•••`.
+  raw internal status string. The payee name and email are shown as provided
+  by the Spart server, which owns any redaction policy.
+
+- **Friendly Spart fee label.** The `SPART_PAYEE_FEE` fee key is now displayed
+  as **Spart! Fee** in the payees meta box.
 
 - **Destroy-on-failure for the WooCommerce gateway.** When a Spart checkout
   attempt fails (network, validation, auth, server, or timeout), the plugin

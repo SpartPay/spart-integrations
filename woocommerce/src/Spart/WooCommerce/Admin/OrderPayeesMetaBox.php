@@ -13,11 +13,12 @@ use Spart\WooCommerce\Gateway\WC_Gateway_Spart;
 use Spart\WooCommerce\Webhooks\OrderSync;
 
 /**
- * Renders a per-order meta box listing the redacted payees (payment parts)
+ * Renders a per-order meta box listing the payees (payment parts)
  * Spart reported for that order. The data is sourced entirely from the
  * {@see OrderSync::META_PAYMENT_PARTS} order-meta snapshot, which is written
- * by the webhook handler. Payee name/email are masked upstream — this box
- * never has access to, nor renders, real PII.
+ * by the webhook handler. Payee name and email are taken from the Spart
+ * server, which owns any redaction policy; this box only escapes them for
+ * safe output.
  *
  * HPOS-aware: registers on both the legacy `shop_order` post screen and the
  * HPOS `wc-orders` admin page screen. Rendering is defensive — corrupt or
@@ -112,7 +113,8 @@ final class OrderPayeesMetaBox {
 
 		foreach ( $parts as $part ) {
 			echo '<tr>';
-			echo '<td>' . \esc_html( $this->payee_label( $part ) ) . '</td>';
+			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- payee_html() returns esc_html()-escaped name + email fragments joined by <br>.
+			echo '<td>' . $this->payee_html( $part ) . '</td>';
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- status_html() returns a fixed-palette inline-styled span; its label is esc_html__()/esc_html()-escaped and colours are esc_attr()-escaped literals.
 			echo '<td>' . $this->status_html( $part ) . '</td>';
 			// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- money() returns wc_price() output (pre-escaped HTML).
@@ -168,14 +170,24 @@ final class OrderPayeesMetaBox {
 	}
 
 	/**
-	 * Build the payee label from the masked name, falling back to a dash. The
-	 * payee email is never stored, so there is no email fallback.
+	 * Render the payee identity cell: the payee name on the first line and,
+	 * when present, the email beneath it in muted text. Both the name and
+	 * email are sourced from the Spart server, which owns any redaction
+	 * policy; this method only escapes them for safe output.
 	 *
 	 * @param array<string, mixed> $part A single payment-part entry.
 	 */
-	private function payee_label( array $part ): string {
-		$name = $this->string_field( $part, 'payeeName' );
-		return $name !== '' ? $name : '—';
+	private function payee_html( array $part ): string {
+		$name  = $this->string_field( $part, 'payeeName' );
+		$email = $this->string_field( $part, 'payeeEmail' );
+
+		$rows   = array();
+		$rows[] = '<strong>' . \esc_html( $name !== '' ? $name : '—' ) . '</strong>';
+		if ( $email !== '' ) {
+			$rows[] = '<span style="color:#646970;">' . \esc_html( $email ) . '</span>';
+		}
+
+		return implode( '<br>', $rows );
 	}
 
 	/**
@@ -270,11 +282,27 @@ final class OrderPayeesMetaBox {
 			if ( ! is_numeric( $amount ) ) {
 				continue;
 			}
-			$fragments[] = \esc_html( (string) $name ) . ': '
+			$fragments[] = \esc_html( $this->fee_label( (string) $name ) ) . ': '
 				. \wc_price( (float) $amount, array( 'currency' => $currency ) );
 		}
 
 		return $fragments === array() ? \esc_html( '—' ) : implode( '<br>', $fragments );
+	}
+
+	/**
+	 * Map a wire fee key to a merchant-friendly display label. Known Spart fee
+	 * keys are given a branded label; any other key is shown verbatim so a new
+	 * backend fee is still surfaced rather than hidden.
+	 *
+	 * @param string $name The fee key as received from the webhook.
+	 */
+	private function fee_label( string $name ): string {
+		switch ( $name ) {
+			case 'SPART_PAYEE_FEE':
+				return \esc_html__( 'Spart! Fee', 'spart-woocommerce' );
+			default:
+				return $name;
+		}//end switch
 	}
 
 	/**

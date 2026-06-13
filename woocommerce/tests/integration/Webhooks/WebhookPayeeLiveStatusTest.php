@@ -9,9 +9,9 @@
  *    -> released (a previously-authorized hold voided, never captured);
  *  - the admin meta box renders the merchant-friendly collapsed labels
  *    Pending -> Paid -> Canceled accordingly;
- *  - NO payee PII (real name / email / "@") ever appears in the stored
- *    snapshot nor the rendered meta box at any step, even though every
- *    delivery payload carries a real name and email.
+ *  - the payee name and email seeded by order.created persist in the stored
+ *    snapshot and render in the meta box at every step (the patch-only
+ *    authorized/released deliveries never clear them).
  *
  * @package Spart\WooCommerce\Tests\Integration\Webhooks
  */
@@ -28,7 +28,7 @@ final class WebhookPayeeLiveStatusTest extends WC_Spart_IntegrationTestCase {
 
 	private const PART_ID = 'pp-live-1';
 
-	public function test_payee_status_advances_pending_paid_canceled_without_pii(): void {
+	public function test_payee_status_advances_pending_paid_canceled_and_shows_payee(): void {
 		$this->set_signing_secret( 'whsec_test' );
 		$order = $this->make_order( '361.00' );
 
@@ -39,7 +39,7 @@ final class WebhookPayeeLiveStatusTest extends WC_Spart_IntegrationTestCase {
 
 		$snapshot = $this->snapshot( $order );
 		$this->assertSame( 'none', $this->part_status( $snapshot ) );
-		$this->assert_no_pii( $snapshot );
+		$this->assert_payee_shown( $snapshot );
 		$this->assert_meta_box_shows( $order, 'Pending' );
 
 		// 2) payment.authorized — patches authorizedAt; status derives to authorized (Paid).
@@ -51,7 +51,7 @@ final class WebhookPayeeLiveStatusTest extends WC_Spart_IntegrationTestCase {
 
 		$snapshot = $this->snapshot( $order );
 		$this->assertSame( 'authorized', $this->part_status( $snapshot ) );
-		$this->assert_no_pii( $snapshot );
+		$this->assert_payee_shown( $snapshot );
 		$this->assert_meta_box_shows( $order, 'Paid' );
 
 		// 3) order.payment_part_released — patches releasedAt; the authorized hold
@@ -64,7 +64,7 @@ final class WebhookPayeeLiveStatusTest extends WC_Spart_IntegrationTestCase {
 
 		$snapshot = $this->snapshot( $order );
 		$this->assertSame( 'released', $this->part_status( $snapshot ) );
-		$this->assert_no_pii( $snapshot );
+		$this->assert_payee_shown( $snapshot );
 		$this->assert_meta_box_shows( $order, 'Canceled' );
 	}
 
@@ -96,12 +96,10 @@ final class WebhookPayeeLiveStatusTest extends WC_Spart_IntegrationTestCase {
 		return (string) $decoded['parts'][0]['status'];
 	}
 
-	private function assert_no_pii( string $snapshot ): void {
+	private function assert_payee_shown( string $snapshot ): void {
 		$this->assertNotSame( '', $snapshot );
-		$this->assertStringNotContainsString( '@', $snapshot );
-		foreach ( array( 'Beppe', 'Brescia', 'obiuan', 'Jane', 'jane', 'Doe' ) as $needle ) {
-			$this->assertStringNotContainsString( $needle, $snapshot, "PII '$needle' leaked into snapshot" );
-		}
+		$this->assertStringContainsString( 'Beppe Brescia', $snapshot );
+		$this->assertStringContainsString( 'obiuan+spartwp@gmail.com', $snapshot );
 	}
 
 	private function assert_meta_box_shows( \WC_Order $order, string $expected_label ): void {
@@ -111,10 +109,8 @@ final class WebhookPayeeLiveStatusTest extends WC_Spart_IntegrationTestCase {
 		$html = $this->render_meta_box( $reloaded );
 
 		$this->assertStringContainsString( $expected_label, $html );
-		$this->assertStringNotContainsString( '@', $html );
-		foreach ( array( 'Beppe', 'Brescia', 'obiuan', 'Jane', 'jane', 'Doe' ) as $needle ) {
-			$this->assertStringNotContainsString( $needle, $html, "PII '$needle' leaked into meta box" );
-		}
+		$this->assertStringContainsString( 'Beppe Brescia', $html );
+		$this->assertStringContainsString( 'obiuan+spartwp@gmail.com', $html );
 	}
 
 	private function render_meta_box( \WC_Order $order ): string {

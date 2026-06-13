@@ -70,7 +70,8 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 			'amountType' => 'Percent',
 			'status'     => $status,
 			'isSparter'  => $is_sparter,
-			'payeeName'  => '•••',
+			'payeeName'  => 'Beppe Brescia',
+			'payeeEmail' => 'beppe@example.com',
 			'net'        => array(
 				'amount'   => 195.0,
 				'currency' => 'EUR',
@@ -132,7 +133,8 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		( new OrderPayeesMetaBox() )->render( $order );
 		$html = (string) ob_get_clean();
 
-		$this->assertStringContainsString( '•••', $html );
+		$this->assertStringContainsString( 'Beppe Brescia', $html );
+		$this->assertStringContainsString( 'beppe@example.com', $html );
 		$this->assertStringContainsString( 'Paid', $html );
 		$this->assertStringContainsString( 'EUR 200.00', $html );
 		$this->assertStringContainsString( 'EUR 195.00', $html );
@@ -148,9 +150,23 @@ final class OrderPayeesMetaBoxTest extends TestCase {
 		( new OrderPayeesMetaBox() )->render( $order );
 		$html = (string) ob_get_clean();
 
-		$this->assertStringContainsString( '•••', $html );
+		$this->assertStringContainsString( 'Beppe Brescia', $html );
 		$this->assertStringContainsString( 'Paid', $html );
 		$this->assertStringContainsString( 'EUR 200.00', $html );
+	}
+
+	public function test_render_relabels_spart_payee_fee(): void {
+		Functions\when( 'wc_get_order' )->returnArg( 1 );
+		$part         = $this->sample_part();
+		$part['fees'] = array( 'SPART_PAYEE_FEE' => 3.0 );
+		$order        = $this->order_with_parts( array( $part ) );
+
+		ob_start();
+		( new OrderPayeesMetaBox() )->render( $order );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'Spart! Fee', $html );
+		$this->assertStringNotContainsString( 'SPART_PAYEE_FEE', $html );
 	}
 
 	/**

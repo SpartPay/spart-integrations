@@ -365,17 +365,14 @@ final class OrderSyncTest extends TestCase {
 		$this->assertSame( 'captured', $part['status'] );
 		$this->assertSame( 'Percent', $part['amountType'] );
 		$this->assertTrue( $part['isSparter'] );
-		$this->assertSame( '•••', $part['payeeName'] );
+		$this->assertSame( 'Beppe Brescia', $part['payeeName'] );
+		$this->assertSame( 'obiuan+spartwp@gmail.com', $part['payeeEmail'] );
 		$this->assertSame( 'EUR', $part['total']['currency'] );
 		$this->assertEquals( 195.0, $part['net']['amount'] );
 		$this->assertEquals( 5.0, $part['fees']['platform'] );
-
-		// PII hard guard: the email field is never stored and no value carries an "@".
-		$this->assertArrayNotHasKey( 'payeeEmail', $part );
-		$this->assertStringNotContainsString( '@', (string) $captured );
 	}
 
-	public function test_sanitizes_payee_name_that_looks_like_an_email(): void {
+	public function test_stores_payee_name_and_email_verbatim(): void {
 		$captured = null;
 		$order    = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'get_id' )->andReturn( 77 );
@@ -396,45 +393,14 @@ final class OrderSyncTest extends TestCase {
 			$order,
 			$this->order_event_with_parts(
 				EventType::OrderCreated,
-				'ORD-PII',
-				array( $this->payment_part( 'pp-x', 'captured', true, 'real.person@gmail.com' ) )
-			)
-		);
-
-		$decoded = json_decode( (string) $captured, true );
-		$this->assertSame( '•••', $decoded['parts'][0]['payeeName'] );
-		$this->assertStringNotContainsString( '@', (string) $captured );
-	}
-
-	public function test_redacts_plain_payee_name_that_is_not_the_mask(): void {
-		$captured = null;
-		$order    = Mockery::mock( \WC_Order::class );
-		$order->shouldReceive( 'get_id' )->andReturn( 79 );
-		$order->shouldReceive( 'get_meta' )->andReturn( '' );
-		$order->shouldReceive( 'update_meta_data' )
-			->with(
-				OrderSync::META_PAYMENT_PARTS,
-				Mockery::on(
-					static function ( $json ) use ( &$captured ): bool {
-						$captured = $json;
-						return true;
-					}
-				)
-			);
-
-		$sync = new OrderSync( $this->null_logger() );
-		$sync->apply(
-			$order,
-			$this->order_event_with_parts(
-				EventType::OrderCreated,
 				'ORD-NAME',
-				array( $this->payment_part( 'pp-n', 'captured', true, 'Beppe Brescia' ) )
+				array( $this->payment_part( 'pp-n', 'captured', true, 'Beppe Brescia', '2026-06-09T00:15:16Z', '2026-06-09T00:15:18Z', null, 'beppe@example.com' ) )
 			)
 		);
 
 		$decoded = json_decode( (string) $captured, true );
-		$this->assertSame( '•••', $decoded['parts'][0]['payeeName'] );
-		$this->assertStringNotContainsString( 'Beppe', (string) $captured );
+		$this->assertSame( 'Beppe Brescia', $decoded['parts'][0]['payeeName'] );
+		$this->assertSame( 'beppe@example.com', $decoded['parts'][0]['payeeEmail'] );
 	}
 
 	public function test_order_created_with_empty_parts_does_not_write_meta(): void {
@@ -890,8 +856,8 @@ final class OrderSyncTest extends TestCase {
 		);
 	}
 
-	private function payment_part( string $id, string $status, bool $is_sparter, string $name = '•••', ?string $authorized_at = '2026-06-09T00:15:16Z', ?string $captured_at = '2026-06-09T00:15:18Z', ?string $released_at = null ): WebhookPaymentPart {
-		$redacted = new WebhookContact( fullName: $name, email: '•••' );
+	private function payment_part( string $id, string $status, bool $is_sparter, string $name = 'Beppe Brescia', ?string $authorized_at = '2026-06-09T00:15:16Z', ?string $captured_at = '2026-06-09T00:15:18Z', ?string $released_at = null, string $email = 'obiuan+spartwp@gmail.com' ): WebhookPaymentPart {
+		$redacted = new WebhookContact( fullName: $name, email: $email );
 		$charge   = new WebhookCharge(
 			net:   new WebhookMoney( currency: 'EUR', amount: 195.00 ),
 			total: new WebhookMoney( currency: 'EUR', amount: 200.00 ),
