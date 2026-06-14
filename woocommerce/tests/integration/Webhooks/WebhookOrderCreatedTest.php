@@ -73,16 +73,10 @@ final class WebhookOrderCreatedTest extends WC_Spart_IntegrationTestCase {
 		$this->assertCount( 1, $decoded['parts'] );
 		$this->assertSame( 'pp-int-1', $decoded['parts'][0]['id'] );
 		$this->assertSame( 'captured', $decoded['parts'][0]['status'] );
-		// Name was an email-looking value and the email itself carried PII:
-		// both must be reduced to the redaction placeholder / dropped entirely.
-		$this->assertSame( '•••', $decoded['parts'][0]['payeeName'] );
-		$this->assertArrayNotHasKey( 'payeeEmail', $decoded['parts'][0] );
-
-		// No PII may leak into the stored snapshot: the raw email and full name
-		// from the payload, and any "@", must be absent.
-		$this->assertStringNotContainsString( '@', $snapshot );
-		$this->assertStringNotContainsString( 'obiuan', $snapshot );
-		$this->assertStringNotContainsString( 'Beppe', $snapshot );
+		// Name and email are stored verbatim from the Spart server, which owns
+		// any redaction policy.
+		$this->assertSame( 'Beppe Brescia', $decoded['parts'][0]['payeeName'] );
+		$this->assertSame( 'obiuan+spartwp@gmail.com', $decoded['parts'][0]['payeeEmail'] );
 
 		$this->assert_dedupe_state( $response['delivery_id'], 'applied' );
 	}

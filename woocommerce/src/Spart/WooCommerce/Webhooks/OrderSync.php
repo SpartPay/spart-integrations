@@ -29,12 +29,11 @@ use Spart\WooCommerce\Logging\SpartLoggerInterface;
 class OrderSync {
 
 	/**
-	 * Order meta key holding the redacted payment-parts (payees) snapshot as
+	 * Order meta key holding the payment-parts (payees) snapshot as
 	 * a versioned JSON document (`{"v":1,"parts":[...]}`). Populated from any
 	 * `order.*` event that carries a non-empty `paymentParts` collection and
-	 * read by the Spart payees meta box. No PII is stored: the payee email is
-	 * never persisted and the payee name is sanitised so the snapshot can
-	 * never contain an email address.
+	 * read by the Spart payees meta box. The payee name and email are stored
+	 * as received from the Spart server, which owns any redaction policy.
 	 */
 	public const META_PAYMENT_PARTS = '_spart_payment_parts';
 
@@ -43,9 +42,6 @@ class OrderSync {
 	 * evolve the shape later without misreading documents written today.
 	 */
 	private const SNAPSHOT_VERSION = 1;
-
-	/** Placeholder used whenever a payee label would otherwise carry PII. */
-	private const REDACTED_PLACEHOLDER = '•••';
 
 	/**
 	 * Wire OrderSync with its logger.
@@ -87,7 +83,7 @@ class OrderSync {
 	}
 
 	/**
-	 * Persist the redacted payment-parts snapshot to order meta.
+	 * Persist the payment-parts snapshot to order meta.
 	 *
 	 * Called for every `order.*` event so the payees list stays current
 	 * regardless of which lifecycle event delivered it. The snapshot merges
@@ -100,8 +96,8 @@ class OrderSync {
 	 *     timestamps. This makes the snapshot order-independent: a late event
 	 *     can never downgrade a part whose status has already advanced, so no
 	 *     recency watermark is needed.
-	 *  3. No PII is stored — the payee email is dropped and the payee name is
-	 *     sanitised so the document can never contain an email address.
+	 *  3. The payee name and email are stored as received from the Spart
+	 *     server, which owns any redaction policy.
 	 *
 	 * Concurrency: this is a read-modify-write on order meta and therefore
 	 * last-writer-wins, the same as before. Any transient lost update self-heals
@@ -136,7 +132,8 @@ class OrderSync {
 				'amountType'   => $part->amountType,
 				'status'       => $this->derive_status( $authorized_at, $captured_at, $released_at ),
 				'isSparter'    => $part->isSparter,
-				'payeeName'    => $this->sanitise_payee_name( $part->payee->fullName ),
+				'payeeName'    => $part->payee->fullName,
+				'payeeEmail'   => $part->payee->email,
 				'net'          => array(
 					'amount'   => $part->payeeCharge->net->amount,
 					'currency' => $part->payeeCharge->net->currency,
@@ -259,11 +256,11 @@ class OrderSync {
 
 	/**
 	 * Patch a single stored part's lifecycle timestamp by id and re-derive its
-	 * status. Matches purely by payment-part id — the event's payee is NEVER
-	 * read or stored (PII guarantee). No-op (debug log) when no snapshot exists
-	 * yet or the id is unknown: a patch lacks the payee-charge/split data needed
-	 * to synthesise a renderable row, and the eventual full snapshot will carry
-	 * correct state.
+	 * status. Matches purely by payment-part id — the event's payee is not read
+	 * here; identity is carried by the full order.* snapshot. No-op (debug log)
+	 * when no snapshot exists yet or the id is unknown: a patch lacks the
+	 * payee-charge/split data needed to synthesise a renderable row, and the
+	 * eventual full snapshot will carry correct state.
 	 *
 	 * @param \WC_Order $order    The resolved WC order.
 	 * @param Event     $event    The verified SDK event.
@@ -298,22 +295,6 @@ class OrderSync {
 		$map[ $part_id ]   = $part;
 
 		$this->write_parts_map( $order, $event, $map );
-	}
-
-	/**
-	 * Sanitise the payee display name so the stored snapshot can never carry
-	 * real identity. The backend masks payee identity to the redaction
-	 * placeholder before transmission, so the ONLY value we ever expect here
-	 * is that placeholder. This gate is a defence-in-depth measure at the
-	 * storage boundary: it whitelists the expected mask and redacts anything
-	 * else, so a backend regression that emits a real name (with or without an
-	 * "@") can never land PII in the WordPress database or the admin UI. This
-	 * mirrors the email handling, which is dropped entirely.
-	 *
-	 * @param string $name The payee name as received from the webhook.
-	 */
-	private function sanitise_payee_name( string $name ): string {
-		return self::REDACTED_PLACEHOLDER === $name ? $name : self::REDACTED_PLACEHOLDER;
 	}
 
 	/**
@@ -416,8 +397,8 @@ class OrderSync {
 
 	/**
 	 * Mark a payment part as released (authorization voided) when Spart reports
-	 * it. Adds an audit note and patches the snapshot. Never reads the event's
-	 * payee — identity stays the masked value already stored from order.created.
+	 * it. Adds an audit note and patches the snapshot. Does not read the event's
+	 * payee — identity stays the value already stored from order.created.
 	 *
 	 * @param \WC_Order $order The resolved WC order.
 	 * @param Event     $event The verified SDK event (data: PaymentPartReleasedEnvelopeData).
