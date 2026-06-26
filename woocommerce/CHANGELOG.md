@@ -8,6 +8,14 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Spart order short ID on the order page.** The per-order **Spart Info** meta
+  box (formerly "Spart webhook deliveries") now shows the Spart **order short
+  ID** as its first row — the same identifier merchants see on the Spart
+  dashboard. It's captured write-once from webhook events (`order.created`, and
+  backfilled from later `order.*` and `payment.authorized` deliveries), so it
+  surfaces on the WooCommerce order edit page without leaving WordPress and is
+  resilient to out-of-order or replayed deliveries.
+
 - **Live per-payee payment status on the order details page.** The **Spart
   payees** meta box now reflects each payee's *current* payment status as
   webhook events arrive, instead of freezing the status captured at

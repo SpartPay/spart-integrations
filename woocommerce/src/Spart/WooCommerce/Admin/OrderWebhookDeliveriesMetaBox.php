@@ -12,6 +12,7 @@ namespace Spart\WooCommerce\Admin;
 use Spart\WooCommerce\Checkout\CheckoutSession;
 use Spart\WooCommerce\Gateway\WC_Gateway_Spart;
 use Spart\WooCommerce\Webhooks\DeliveryRepository;
+use Spart\WooCommerce\Webhooks\OrderSync;
 use Spart\WooCommerce\Webhooks\WebhookReceiver;
 
 /**
@@ -77,7 +78,7 @@ final class OrderWebhookDeliveriesMetaBox {
 
 		\add_meta_box(
 			self::META_BOX_ID,
-			\esc_html__( 'Spart webhook deliveries', 'spart-woocommerce' ),
+			\esc_html__( 'Spart Info', 'spart-woocommerce' ),
 			array( $this, 'render' ),
 			$screen_id,
 			'normal',
@@ -140,24 +141,31 @@ final class OrderWebhookDeliveriesMetaBox {
 	}
 
 	/**
-	 * Render the read-only identifier block (correlation id, intent short id,
-	 * last delivery id) above the deliveries table.
+	 * Render the read-only identifier block (order short id, correlation id,
+	 * intent short id, last delivery id) above the deliveries table.
 	 *
-	 * Each identifier is rendered only when present so non-Spart-touched
-	 * fields don't surface as empty rows.
+	 * The Spart order short ID is the merchant-facing order identifier and is
+	 * listed first. Each identifier is rendered only when present so
+	 * non-Spart-touched fields don't surface as empty rows.
 	 *
 	 * @param \WC_Order $order Resolved order being rendered.
 	 */
 	private function render_identifiers( \WC_Order $order ): void {
+		$order_short_id   = (string) $order->get_meta( OrderSync::META_ORDER_SHORT_ID, true );
 		$correlation_id   = (string) $order->get_meta( CheckoutSession::META_CORRELATION_ID, true );
 		$intent_short_id  = (string) $order->get_meta( CheckoutSession::META_INTENT_SHORT_ID, true );
 		$last_delivery_id = (string) $order->get_meta( WebhookReceiver::ORDER_DEDUPE_META_KEY, true );
 
-		if ( $correlation_id === '' && $intent_short_id === '' && $last_delivery_id === '' ) {
+		if ( $order_short_id === '' && $correlation_id === '' && $intent_short_id === '' && $last_delivery_id === '' ) {
 			return;
 		}
 
 		echo '<table class="widefat spart-webhook-deliveries__identifiers"><tbody>';
+		if ( $order_short_id !== '' ) {
+			echo '<tr><th scope="row">'
+				. \esc_html__( 'Order short ID', 'spart-woocommerce' )
+				. '</th><td><code>' . \esc_html( $order_short_id ) . '</code></td></tr>';
+		}
 		if ( $correlation_id !== '' ) {
 			echo '<tr><th scope="row">'
 				. \esc_html__( 'Correlation ID', 'spart-woocommerce' )

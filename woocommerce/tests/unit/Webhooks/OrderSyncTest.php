@@ -71,6 +71,7 @@ final class OrderSyncTest extends TestCase {
 					$call_order[] = 'payment_complete';
 				}
 			);
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->order_event( EventType::OrderCompleted, 'ABCD-1234' ) );
@@ -177,6 +178,7 @@ final class OrderSyncTest extends TestCase {
 		$order->shouldReceive( 'add_order_note' )
 			->once()
 			->with( 'Spart authorized payment pp-uuid-1 for USD 25.50' );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->payment_event( 'pp-uuid-1', 25.50 ) );
@@ -192,6 +194,7 @@ final class OrderSyncTest extends TestCase {
 		$order->shouldReceive( 'add_order_note' )
 			->once()
 			->with( 'Spart authorized payment pp-uuid-eur for EUR 19.99' );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->payment_event( 'pp-uuid-eur', 19.99, 'EUR' ) );
@@ -203,6 +206,7 @@ final class OrderSyncTest extends TestCase {
 
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'payment_complete' )->once()->with( 'ORD-9' );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->order_event( EventType::OrderCompleted, 'ORD-9' ) );
@@ -215,6 +219,7 @@ final class OrderSyncTest extends TestCase {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'update_status' )->once()->with( 'cancelled', 'Cancelled in Spart' );
 		$order->shouldReceive( 'get_items' )->once()->andReturn( array() );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->order_event( EventType::OrderCanceled, 'ORD-X' ) );
@@ -227,6 +232,7 @@ final class OrderSyncTest extends TestCase {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'update_status' )->once()->with( 'failed', 'Spart intent expired' );
 		$order->shouldReceive( 'get_items' )->once()->andReturn( array() );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->order_event( EventType::OrderExpired, 'ORD-Y' ) );
@@ -253,6 +259,7 @@ final class OrderSyncTest extends TestCase {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'update_status' )->once()->with( 'cancelled', 'Cancelled in Spart' );
 		$order->shouldReceive( 'get_items' )->once()->andReturn( array( $item ) );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->order_event( EventType::OrderCanceled, 'ORD-Z' ) );
@@ -269,6 +276,7 @@ final class OrderSyncTest extends TestCase {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'update_status' )->once()->with( 'cancelled', 'Cancelled in Spart' );
 		$order->shouldReceive( 'get_items' )->once()->andReturn( array( $item ) );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->order_event( EventType::OrderCanceled, 'ORD-W' ) );
@@ -289,6 +297,7 @@ final class OrderSyncTest extends TestCase {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'update_status' )->once()->with( 'cancelled', 'Cancelled in Spart' );
 		$order->shouldReceive( 'get_items' )->once()->andReturn( array( $item ) );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->order_event( EventType::OrderCanceled, 'ORD-V' ) );
@@ -344,6 +353,7 @@ final class OrderSyncTest extends TestCase {
 					}
 				)
 			);
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply(
@@ -387,6 +397,7 @@ final class OrderSyncTest extends TestCase {
 					}
 				)
 			);
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply(
@@ -403,11 +414,12 @@ final class OrderSyncTest extends TestCase {
 		$this->assertSame( 'beppe@example.com', $decoded['parts'][0]['payeeEmail'] );
 	}
 
-	public function test_order_created_with_empty_parts_does_not_write_meta(): void {
+	public function test_order_created_with_empty_parts_does_not_write_parts_meta(): void {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'get_id' )->andReturn( 78 );
 		$order->shouldReceive( 'get_meta' )->andReturn( '' );
-		$order->shouldNotReceive( 'update_meta_data' );
+		$this->allow_short_id_capture( $order );
+		$order->shouldNotReceive( 'update_meta_data' )->with( OrderSync::META_PAYMENT_PARTS, Mockery::any() );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->order_event( EventType::OrderCreated, 'ORD-CR-2' ) );
@@ -422,6 +434,7 @@ final class OrderSyncTest extends TestCase {
 		$order->shouldReceive( 'update_meta_data' )
 			->with( OrderSync::META_PAYMENT_PARTS, Mockery::type( 'string' ) );
 		$order->shouldReceive( 'payment_complete' )->once()->with( 'ORD-CMP-1' );
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply(
@@ -434,6 +447,66 @@ final class OrderSyncTest extends TestCase {
 		);
 
 		$this->assertTrue( true );
+	}
+
+	public function test_order_created_stamps_order_short_id(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 100 );
+		$order->shouldReceive( 'get_meta' )->with( OrderSync::META_ORDER_SHORT_ID, true )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( OrderSync::META_ORDER_SHORT_ID, 'ORD-NEW' );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply( $order, $this->order_event( EventType::OrderCreated, 'ORD-NEW' ) );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_order_short_id_is_not_overwritten_when_already_present(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 101 );
+		$order->shouldReceive( 'get_meta' )->with( OrderSync::META_ORDER_SHORT_ID, true )->andReturn( 'ORD-EXISTING' );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldNotReceive( 'update_meta_data' )->with( OrderSync::META_ORDER_SHORT_ID, Mockery::any() );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply( $order, $this->order_event( EventType::OrderCreated, 'ORD-DIFFERENT' ) );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_non_created_order_event_backfills_order_short_id(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_meta' )->with( OrderSync::META_ORDER_SHORT_ID, true )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldReceive( 'payment_complete' )->once()->with( 'ORD-CMP' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( OrderSync::META_ORDER_SHORT_ID, 'ORD-CMP' );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply( $order, $this->order_event( EventType::OrderCompleted, 'ORD-CMP' ) );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_payment_authorized_backfills_order_short_id(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 103 );
+		$order->shouldReceive( 'get_meta' )->with( OrderSync::META_ORDER_SHORT_ID, true )->andReturn( '' );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldReceive( 'add_order_note' );
+		$order->shouldReceive( 'update_meta_data' )->once()->with( OrderSync::META_ORDER_SHORT_ID, 'ORD-1' );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply( $order, $this->payment_authorized_event( 'A', '2026-06-09T00:20:00Z' ) );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_empty_order_short_id_is_a_noop(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 104 );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+		$order->shouldNotReceive( 'update_meta_data' )->with( OrderSync::META_ORDER_SHORT_ID, Mockery::any() );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply( $order, $this->order_event( EventType::OrderCreated, '' ) );
+		$this->addToAssertionCount( 1 );
 	}
 
 	/** Decode a captured JSON snapshot into an id-keyed parts map. */
@@ -461,6 +534,7 @@ final class OrderSyncTest extends TestCase {
 				}
 			)
 		);
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply(
@@ -525,6 +599,7 @@ final class OrderSyncTest extends TestCase {
 				}
 			)
 		);
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		// A late order.created with A still 'none' (all-null ts).
@@ -586,6 +661,7 @@ final class OrderSyncTest extends TestCase {
 				}
 			)
 		);
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->payment_authorized_event( 'A', '2026-06-09T00:20:00Z' ) );
@@ -683,7 +759,8 @@ final class OrderSyncTest extends TestCase {
 		$order->shouldReceive( 'get_meta' )->with( OrderSync::META_PAYMENT_PARTS, true )->andReturn( $prior );
 		$order->shouldReceive( 'get_meta' )->andReturn( '' );
 		$order->shouldReceive( 'add_order_note' );
-		$order->shouldNotReceive( 'update_meta_data' );
+		$this->allow_short_id_capture( $order );
+		$order->shouldNotReceive( 'update_meta_data' )->with( OrderSync::META_PAYMENT_PARTS, Mockery::any() );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->payment_authorized_event( 'ZZZ', '2026-06-09T00:20:00Z' ) );
@@ -695,7 +772,8 @@ final class OrderSyncTest extends TestCase {
 		$order->shouldReceive( 'get_id' )->andReturn( 95 );
 		$order->shouldReceive( 'get_meta' )->andReturn( '' );
 		$order->shouldReceive( 'add_order_note' );
-		$order->shouldNotReceive( 'update_meta_data' );
+		$this->allow_short_id_capture( $order );
+		$order->shouldNotReceive( 'update_meta_data' )->with( OrderSync::META_PAYMENT_PARTS, Mockery::any() );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->payment_authorized_event( 'A', '2026-06-09T00:20:00Z' ) );
@@ -746,6 +824,7 @@ final class OrderSyncTest extends TestCase {
 				}
 			)
 		);
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		// Authorized event carrying REAL PII in its payee:
@@ -801,6 +880,7 @@ final class OrderSyncTest extends TestCase {
 				}
 			)
 		);
+		$this->allow_short_id_capture( $order );
 
 		$sync = new OrderSync( $this->null_logger() );
 		$sync->apply( $order, $this->payment_authorized_event( 'A', '2026-06-09T00:20:00Z' ) );
@@ -812,6 +892,22 @@ final class OrderSyncTest extends TestCase {
 		$logger = Mockery::mock( SpartLoggerInterface::class );
 		$logger->shouldIgnoreMissing();
 		return $logger;
+	}
+
+	/**
+	 * Permit (without requiring) the write-once order-short-id capture on a
+	 * strict order mock. Use in existing tests that drive an order.* or
+	 * payment.authorized event through apply() but are not themselves about the
+	 * short id: it stubs the "current value is empty" read and allows the
+	 * resulting write for the short-id key only (the payment-parts key keeps its
+	 * own separate expectations).
+	 */
+	private function allow_short_id_capture( \WC_Order $order ): void {
+		$order->shouldReceive( 'get_meta' )
+			->with( OrderSync::META_ORDER_SHORT_ID, true )
+			->andReturn( '' );
+		$order->shouldReceive( 'update_meta_data' )
+			->with( OrderSync::META_ORDER_SHORT_ID, Mockery::type( 'string' ) );
 	}
 
 	private function intent_event( string $id ): Event {
