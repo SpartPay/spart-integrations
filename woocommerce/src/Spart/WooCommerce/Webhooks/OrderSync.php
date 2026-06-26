@@ -38,6 +38,17 @@ class OrderSync {
 	public const META_PAYMENT_PARTS = '_spart_payment_parts';
 
 	/**
+	 * Order meta key holding the Spart order short ID (a Base58 rendering of the
+	 * order GUID). Stamped write-once from any `order.*` event
+	 * (`OrderEnvelopeData->shortId`) and from `payment.authorized`
+	 * (`PaymentEnvelopeData->orderShortId`). The short ID is immutable per order,
+	 * so the first non-empty value wins and is never overwritten, which also
+	 * makes the stamp resilient to out-of-order or replayed deliveries. Read by
+	 * the Spart Info meta box to surface the merchant-facing order identifier.
+	 */
+	public const META_ORDER_SHORT_ID = '_spart_order_short_id';
+
+	/**
 	 * Schema version stamped into the stored snapshot so the reader can
 	 * evolve the shape later without misreading documents written today.
 	 */
@@ -68,6 +79,8 @@ class OrderSync {
 		if ( $event->data instanceof OrderEnvelopeData ) {
 			$this->maybe_store_payment_parts( $order, $event );
 		}
+
+		$this->maybe_store_short_id( $order, $event );
 
 		match ( $event->knownType ) {
 			EventType::IntentCreated     => $this->on_intent_created( $order, $event ),
@@ -150,6 +163,43 @@ class OrderSync {
 		}//end foreach
 
 		$this->write_parts_map( $order, $event, $current );
+	}
+
+	/**
+	 * Stamp the Spart order short ID into a dedicated, labelled order meta key.
+	 *
+	 * Called for every event; extracts the short ID from the two envelope types
+	 * that carry it — `OrderEnvelopeData->shortId` (any `order.*`) and
+	 * `PaymentEnvelopeData->orderShortId` (`payment.authorized`) — and ignores
+	 * all others. Write-once: the short ID is immutable per order, so a non-empty
+	 * stored value is never overwritten, which also makes the stamp resilient to
+	 * out-of-order or replayed deliveries. An empty/missing value is a no-op.
+	 *
+	 * Does not call {@see \WC_Order::save()} — the receiver persists the order
+	 * after {@see apply()} returns (same contract as maybe_store_payment_parts).
+	 *
+	 * @param \WC_Order $order The resolved WC order.
+	 * @param Event     $event The verified SDK event.
+	 */
+	private function maybe_store_short_id( \WC_Order $order, Event $event ): void {
+		$data     = $event->data;
+		$short_id = '';
+		if ( $data instanceof OrderEnvelopeData ) {
+			$short_id = $data->shortId;
+		} elseif ( $data instanceof PaymentEnvelopeData ) {
+			$short_id = $data->orderShortId;
+		}
+
+		if ( '' === $short_id ) {
+			return;
+		}
+
+		$existing = (string) $order->get_meta( self::META_ORDER_SHORT_ID, true );
+		if ( '' !== $existing ) {
+			return;
+		}
+
+		$order->update_meta_data( self::META_ORDER_SHORT_ID, $short_id );
 	}
 
 	/**
