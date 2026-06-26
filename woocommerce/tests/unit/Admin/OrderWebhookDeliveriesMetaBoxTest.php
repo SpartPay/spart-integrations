@@ -14,6 +14,7 @@ use Spart\WooCommerce\Admin\StateBadge;
 use Spart\WooCommerce\Checkout\CheckoutSession;
 use Spart\WooCommerce\Webhooks\DeliveryRepository;
 use Spart\WooCommerce\Webhooks\DeliveryRow;
+use Spart\WooCommerce\Webhooks\OrderSync;
 use Spart\WooCommerce\Webhooks\WebhookReceiver;
 
 final class OrderWebhookDeliveriesMetaBoxTest extends TestCase {
@@ -74,6 +75,27 @@ final class OrderWebhookDeliveriesMetaBoxTest extends TestCase {
 			->with(
 				'spart_webhook_deliveries',
 				Mockery::any(),
+				Mockery::type( 'array' ),
+				'shop_order',
+				'normal',
+				'low'
+			);
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_payment_method' )->andReturn( 'spart' );
+		$order->shouldReceive( 'get_id' )->andReturn( 42 );
+
+		( new OrderWebhookDeliveriesMetaBox( Mockery::mock( DeliveryRepository::class ) ) )
+			->maybe_add( 'shop_order', $order );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_maybe_add_uses_spart_info_as_meta_box_title(): void {
+		Functions\when( 'wc_get_order' )->returnArg( 1 );
+		Functions\expect( 'add_meta_box' )
+			->once()
+			->with(
+				'spart_webhook_deliveries',
+				'Spart Info',
 				Mockery::type( 'array' ),
 				'shop_order',
 				'normal',
@@ -194,6 +216,9 @@ final class OrderWebhookDeliveriesMetaBoxTest extends TestCase {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'get_id' )->andReturn( 42 );
 		$order->shouldReceive( 'get_meta' )
+			->with( OrderSync::META_ORDER_SHORT_ID, true )
+			->andReturn( 'os_42' );
+		$order->shouldReceive( 'get_meta' )
 			->with( CheckoutSession::META_CORRELATION_ID, true )
 			->andReturn( 'corr_abc' );
 		$order->shouldReceive( 'get_meta' )
@@ -211,6 +236,8 @@ final class OrderWebhookDeliveriesMetaBoxTest extends TestCase {
 		$this->assertStringContainsString( 'intent.created', $html );
 		$this->assertStringContainsString( 'spart-state-applied', $html );
 		// Top-section identifiers.
+		$this->assertStringContainsString( 'Order short ID', $html );
+		$this->assertStringContainsString( 'os_42', $html );
 		$this->assertStringContainsString( 'corr_abc', $html );
 		$this->assertStringContainsString( 'pi_short_42', $html );
 		// Attempts column header + cell.
@@ -235,6 +262,42 @@ final class OrderWebhookDeliveriesMetaBoxTest extends TestCase {
 		$html = (string) ob_get_clean();
 
 		$this->assertStringContainsString( 'No webhook deliveries', $html );
+	}
+
+	public function test_render_shows_order_short_id_row_when_present(): void {
+		Functions\when( 'wc_get_order' )->returnArg( 1 );
+		$repo = Mockery::mock( DeliveryRepository::class );
+		$repo->shouldReceive( 'list_for_order' )->once()->with( 42, 50 )->andReturn( array() );
+
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 42 );
+		$order->shouldReceive( 'get_meta' )
+			->with( OrderSync::META_ORDER_SHORT_ID, true )
+			->andReturn( 'PQodcAQLbdkq3hDeGy63ck' );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+
+		ob_start();
+		( new OrderWebhookDeliveriesMetaBox( $repo ) )->render( $order );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringContainsString( 'Order short ID', $html );
+		$this->assertStringContainsString( '<code>PQodcAQLbdkq3hDeGy63ck</code>', $html );
+	}
+
+	public function test_render_omits_order_short_id_row_when_absent(): void {
+		Functions\when( 'wc_get_order' )->returnArg( 1 );
+		$repo = Mockery::mock( DeliveryRepository::class );
+		$repo->shouldReceive( 'list_for_order' )->once()->with( 42, 50 )->andReturn( array() );
+
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_id' )->andReturn( 42 );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+
+		ob_start();
+		( new OrderWebhookDeliveriesMetaBox( $repo ) )->render( $order );
+		$html = (string) ob_get_clean();
+
+		$this->assertStringNotContainsString( 'Order short ID', $html );
 	}
 
 	public function test_render_returns_silently_when_user_lacks_edit_shop_orders_cap(): void {
