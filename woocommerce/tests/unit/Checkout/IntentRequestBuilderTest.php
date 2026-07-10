@@ -30,6 +30,11 @@ final class IntentRequestBuilderTest extends TestCase {
 			// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter -- $permalink kept to match WC signature.
 			static fn ( $endpoint, $value = '', $permalink = '' ) => 'https://shop.example/checkout/order-received/' . (string) $value . '/'
 		);
+		// Default the locale resolvers to blank so existing assertions are
+		// unaffected (desiredLanguage resolves to null); individual tests
+		// override these as needed.
+		Monkey\Functions\when( 'determine_locale' )->justReturn( '' );
+		Monkey\Functions\when( 'get_locale' )->justReturn( '' );
 	}
 
 	protected function tearDown(): void {
@@ -215,6 +220,74 @@ final class IntentRequestBuilderTest extends TestCase {
 			'Builder must pass wc_get_checkout_url() as the permalink fallback so the endpoint resolves to an absolute URL.'
 		);
 		$this->assertStringStartsWith( 'https://', (string) $req->options->returnUri );
+	}
+
+	public function test_sends_determine_locale_as_desired_language(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( 'fr_FR' );
+		$order = $this->make_order(
+			array(
+				'id'       => 5,
+				'currency' => 'EUR',
+				'total'    => '10.00',
+				'email'    => 'a@b.com',
+				'items'    => array(
+					array(
+						'name' => 'Item',
+						'qty'  => 1,
+					),
+				),
+			)
+		);
+
+		$req = ( new IntentRequestBuilder( 15 ) )->build( $order, new SessionIdComposer( 'a1b2c3d4' ) );
+
+		$this->assertSame( 'fr_FR', $req->desiredLanguage );
+	}
+
+	public function test_falls_back_to_get_locale_when_determine_locale_blank(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( '' );
+		Monkey\Functions\when( 'get_locale' )->justReturn( 'de_DE' );
+		$order = $this->make_order(
+			array(
+				'id'       => 5,
+				'currency' => 'EUR',
+				'total'    => '10.00',
+				'email'    => 'a@b.com',
+				'items'    => array(
+					array(
+						'name' => 'Item',
+						'qty'  => 1,
+					),
+				),
+			)
+		);
+
+		$req = ( new IntentRequestBuilder( 15 ) )->build( $order, new SessionIdComposer( 'a1b2c3d4' ) );
+
+		$this->assertSame( 'de_DE', $req->desiredLanguage );
+	}
+
+	public function test_desired_language_is_null_when_locale_blank(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( '' );
+		Monkey\Functions\when( 'get_locale' )->justReturn( '' );
+		$order = $this->make_order(
+			array(
+				'id'       => 5,
+				'currency' => 'EUR',
+				'total'    => '10.00',
+				'email'    => 'a@b.com',
+				'items'    => array(
+					array(
+						'name' => 'Item',
+						'qty'  => 1,
+					),
+				),
+			)
+		);
+
+		$req = ( new IntentRequestBuilder( 15 ) )->build( $order, new SessionIdComposer( 'a1b2c3d4' ) );
+
+		$this->assertNull( $req->desiredLanguage );
 	}
 
 	/**

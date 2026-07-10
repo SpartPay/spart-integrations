@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SDK_REF: 84518047c705a8b0b97422ba2fe64c2dc8dab3dd  # spart-sdks main @ #15 merge (order.payment_part_released); squash-merge, prior branch-tip SHA orphaned
+  SDK_REF: 2c0a27f5e34f5f81be9f9332bdd055c79cc115c0  # spart-sdks main @ #16 merge (CreateIntentRequest.desiredLanguage); squash-merge, prior branch-tip SHA orphaned
 
 jobs:
   php-lint:

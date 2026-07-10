@@ -92,7 +92,32 @@ final class IntentRequestBuilder {
 			sparter: $contact,
 			sessionId: $sessions->compose( (int) $order->get_id() ),
 			options: $options,
+			desiredLanguage: $this->resolve_desired_language(),
 		);
+	}
+
+	/**
+	 * Resolve the shopper's UI language for the current request.
+	 *
+	 * Prefers WordPress's canonical determine_locale() — it reflects the
+	 * visitor/site locale and applies the `determine_locale` filter that
+	 * WPML, Polylang, and WooCommerce hook — then falls back to get_locale(),
+	 * and finally to null when neither yields a value (WP-CLI, REST, unit
+	 * tests, or a blank locale). The raw locale (e.g. "fr_FR") is returned
+	 * verbatim; the Spart server normalises it and ignores unsupported values,
+	 * so a bad or missing locale never blocks checkout.
+	 *
+	 * @return string|null The locale string, or null when none is available.
+	 */
+	private function resolve_desired_language(): ?string {
+		$locale = '';
+		if ( function_exists( 'determine_locale' ) ) {
+			$locale = trim( (string) \determine_locale() );
+		}
+		if ( '' === $locale && function_exists( 'get_locale' ) ) {
+			$locale = trim( (string) \get_locale() );
+		}
+		return '' !== $locale ? $locale : null;
 	}
 
 	/**
