@@ -8,6 +8,13 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Shopper language sent to Spart.** When creating a checkout intent, the
+  plugin now sends the current site/shopper language (via WordPress's
+  `determine_locale()`, falling back to `get_locale()`) so Spart can localise
+  payee-facing communications. When no language is available it sends nothing
+  (defaults to `null`). Requires `spart/sdk` with `CreateIntentRequest`'s
+  `desiredLanguage` field.
+
 - **Spart order short ID on the order page.** The per-order **Spart Info** meta
   box (formerly "Spart webhook deliveries") now shows the Spart **order short
   ID** as its first row — the same identifier merchants see on the Spart
