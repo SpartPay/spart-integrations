@@ -30,8 +30,10 @@ use Spart\WooCommerce\Checkout\FailureCode;
 use Spart\WooCommerce\Checkout\IntentRequestBuilder;
 use Spart\WooCommerce\Checkout\MissingApiKeyException;
 use Spart\WooCommerce\Checkout\SpartClientFactoryInterface;
+use Spart\WooCommerce\Logging\LogEvents;
 use Spart\WooCommerce\Logging\NullSpartLogger;
 use Spart\WooCommerce\Logging\SpartLoggerInterface;
+use Spart\WooCommerce\Tests\Unit\Fixtures\RecordingSpartLogger;
 
 /**
  * Locks the full error-branch table from spec §Errors & edge cases.
@@ -131,6 +133,106 @@ final class CheckoutSessionTest extends TestCase {
 		) )->checkout( $order, 'corr-propagated' );
 
 		$this->assertTrue( $result->is_success() );
+	}
+
+	public function test_checkout_emits_complete_success_profile(): void {
+		$order = $this->make_order();
+		$body  = (string) wp_json_encode(
+			array(
+				'isSuccessful' => true,
+				'value'        => array(
+					'intentShortId' => 'abc',
+					'checkoutUrl'   => 'https://pay.spart/abc',
+				),
+				'error'        => null,
+			)
+		);
+
+		$factory = Mockery::mock( SpartClientFactoryInterface::class );
+		$factory->shouldReceive( 'api_key' )->andReturn( 'sk_live_x' );
+		$factory->shouldReceive( 'create' )->andReturn( $this->make_real_client_returning( 201, $body ) );
+		$logger = new RecordingSpartLogger();
+
+		$result = ( new CheckoutSession(
+			$factory,
+			new IntentRequestBuilder( 10080 ),
+			$logger
+		) )->checkout( $order, 'corr-profile-success' );
+
+		$this->assertTrue( $result->is_success() );
+		$calls = $logger->calls_for_event( LogEvents::CHECKOUT_PROFILE );
+		$this->assertCount( 1, $calls );
+		$context = $calls[0]['context'];
+		$this->assertSame( 'success', $context['outcome'] );
+		$this->assertSame( 'complete', $context['last_stage'] );
+		$this->assertSame( 'corr-profile-success', $context['correlation_id'] );
+		$this->assertSame( 99, $context['order_id'] );
+
+		foreach ( array( 'request_build_ms', 'client_create_ms', 'intent_request_ms', 'order_save_ms', 'session_total_ms' ) as $field ) {
+			$this->assertIsFloat( $context[ $field ] );
+			$this->assertGreaterThanOrEqual( 0.0, $context[ $field ] );
+		}
+	}
+
+	public function test_checkout_profiles_request_build_failure(): void {
+		$factory = Mockery::mock( SpartClientFactoryInterface::class );
+		$factory->shouldReceive( 'api_key' )->andReturn( 'sk_live_x' );
+		$factory->shouldNotReceive( 'create' );
+		$logger = new RecordingSpartLogger();
+
+		$result = ( new CheckoutSession(
+			$factory,
+			new IntentRequestBuilder( 10080 ),
+			$logger
+		) )->checkout( $this->make_order( '0.00' ), 'corr-build-failure' );
+
+		$this->assertFalse( $result->is_success() );
+		$calls = $logger->calls_for_event( LogEvents::CHECKOUT_PROFILE );
+		$this->assertCount( 1, $calls );
+		$this->assertSame( 'failure', $calls[0]['context']['outcome'] );
+		$this->assertSame( 'request_build', $calls[0]['context']['last_stage'] );
+		$this->assertArrayHasKey( 'request_build_ms', $calls[0]['context'] );
+		$this->assertArrayNotHasKey( 'intent_request_ms', $calls[0]['context'] );
+	}
+
+	public function test_checkout_profiles_intent_request_failure(): void {
+		$http         = new class() implements HttpClient {
+			public function send( HttpRequest $request ): HttpResponse {
+				unset( $request );
+				throw new SpartTimeoutException( 'timed out' );
+			}
+		};
+		$http_factory = new class( $http ) implements HttpClientFactory {
+			public function __construct( private readonly HttpClient $http ) {}
+			public function createClient(): HttpClient {
+				return $this->http;
+			}
+		};
+		$client       = new SpartClient(
+			new SpartClientConfig(
+				baseUrl: 'https://api.spartpay.com',
+				apiKey: 'sk_live_x',
+			),
+			$http_factory
+		);
+
+		$factory = Mockery::mock( SpartClientFactoryInterface::class );
+		$factory->shouldReceive( 'api_key' )->andReturn( 'sk_live_x' );
+		$factory->shouldReceive( 'create' )->andReturn( $client );
+		$logger = new RecordingSpartLogger();
+
+		$result = ( new CheckoutSession(
+			$factory,
+			new IntentRequestBuilder( 10080 ),
+			$logger
+		) )->checkout( $this->make_order(), 'corr-api-failure' );
+
+		$this->assertFalse( $result->is_success() );
+		$calls = $logger->calls_for_event( LogEvents::CHECKOUT_PROFILE );
+		$this->assertCount( 1, $calls );
+		$this->assertSame( 'intent_request', $calls[0]['context']['last_stage'] );
+		$this->assertArrayHasKey( 'intent_request_ms', $calls[0]['context'] );
+		$this->assertArrayNotHasKey( 'order_save_ms', $calls[0]['context'] );
 	}
 
 	public function test_missing_api_key_returns_friendly_failure(): void {
@@ -334,6 +436,35 @@ final class CheckoutSessionTest extends TestCase {
 		);
 	}
 
+	public function test_checkout_profiles_order_save_failure(): void {
+		$body    = (string) wp_json_encode(
+			array(
+				'isSuccessful' => true,
+				'value'        => array(
+					'intentShortId' => 'abc',
+					'checkoutUrl'   => 'https://pay.spart/abc',
+				),
+				'error'        => null,
+			)
+		);
+		$factory = Mockery::mock( SpartClientFactoryInterface::class );
+		$factory->shouldReceive( 'api_key' )->andReturn( 'sk_live_x' );
+		$factory->shouldReceive( 'create' )->andReturn( $this->make_real_client_returning( 201, $body ) );
+		$logger = new RecordingSpartLogger();
+
+		$result = ( new CheckoutSession(
+			$factory,
+			new IntentRequestBuilder( 10080 ),
+			$logger
+		) )->checkout( $this->make_order_that_fails_save(), 'corr-save-failure' );
+
+		$this->assertFalse( $result->is_success() );
+		$calls = $logger->calls_for_event( LogEvents::CHECKOUT_PROFILE );
+		$this->assertCount( 1, $calls );
+		$this->assertSame( 'order_save', $calls[0]['context']['last_stage'] );
+		$this->assertArrayHasKey( 'order_save_ms', $calls[0]['context'] );
+	}
+
 	private function make_order( string $total = '99.99' ): \WC_Order {
 		$o = new \WC_Order();
 		$o->__test_init(
@@ -353,6 +484,31 @@ final class CheckoutSessionTest extends TestCase {
 			)
 		);
 		return $o;
+	}
+
+	private function make_order_that_fails_save(): \WC_Order {
+		$order = new class() extends \WC_Order {
+			public function save(): int {
+				throw new \RuntimeException( 'database write failed' );
+			}
+		};
+		$order->__test_init(
+			array(
+				'id'       => 100,
+				'currency' => 'USD',
+				'total'    => '99.99',
+				'email'    => 'jane@example.com',
+				'first'    => 'Jane',
+				'last'     => 'Doe',
+				'items'    => array(
+					array(
+						'name' => 'Widget',
+						'qty'  => 1,
+					),
+				),
+			)
+		);
+		return $order;
 	}
 
 	/**

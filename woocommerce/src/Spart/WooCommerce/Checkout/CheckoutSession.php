@@ -16,6 +16,7 @@ use Spart\Sdk\Exceptions\SpartServerException;
 use Spart\Sdk\Exceptions\SpartTimeoutException;
 use Spart\Sdk\Exceptions\SpartTransportException;
 use Spart\Sdk\Exceptions\SpartValidationException;
+use Spart\WooCommerce\Logging\ElapsedTime;
 use Spart\WooCommerce\Logging\ErrorSanitizer;
 use Spart\WooCommerce\Logging\LogEvents;
 use Spart\WooCommerce\Logging\SpartLoggerInterface;
@@ -101,17 +102,41 @@ class CheckoutSession {
 	 *                         or a failure(customer_message, log_message, failure_code).
 	 */
 	public function checkout( \WC_Order $order, string $correlation_id ): CheckoutResult {
-		$api_key      = $this->client_factory->api_key();
-		$base_context = array(
+		$api_key            = $this->client_factory->api_key();
+		$base_context       = array(
 			'correlation_id' => $correlation_id,
 			'order_id'       => $order->get_id(),
 		);
+		$session_started_at = ElapsedTime::start();
+		$outcome            = 'failure';
+		$last_stage         = 'request_build';
+		$timings            = array();
 
 		try {
-			$sessions = new SessionIdComposer( $this->site_token() );
-			$request  = $this->request_builder->build( $order, $sessions );
-			$client   = $this->client_factory->create( $base_context );
-			$intent   = $client->intents()->create( $request );
+			$last_stage       = 'request_build';
+			$stage_started_at = ElapsedTime::start();
+			try {
+				$sessions = new SessionIdComposer( $this->site_token() );
+				$request  = $this->request_builder->build( $order, $sessions );
+			} finally {
+				$timings['request_build_ms'] = ElapsedTime::milliseconds_since( $stage_started_at );
+			}
+
+			$last_stage       = 'client_create';
+			$stage_started_at = ElapsedTime::start();
+			try {
+				$client = $this->client_factory->create( $base_context );
+			} finally {
+				$timings['client_create_ms'] = ElapsedTime::milliseconds_since( $stage_started_at );
+			}
+
+			$last_stage       = 'intent_request';
+			$stage_started_at = ElapsedTime::start();
+			try {
+				$intent = $client->intents()->create( $request );
+			} finally {
+				$timings['intent_request_ms'] = ElapsedTime::milliseconds_since( $stage_started_at );
+			}
 
 			$this->logger->info(
 				'Spart intent created',
@@ -132,9 +157,18 @@ class CheckoutSession {
 			// Server-agnostic alternative to a (currently non-existent)
 			// CreateIntentRequest::metadata field — see the
 			// META_CORRELATION_ID const docblock for the trade-off.
-			$order->update_meta_data( self::META_INTENT_SHORT_ID, $intent->intentShortId );
-			$order->update_meta_data( self::META_CORRELATION_ID, $correlation_id );
-			$order->save();
+			$last_stage       = 'order_save';
+			$stage_started_at = ElapsedTime::start();
+			try {
+				$order->update_meta_data( self::META_INTENT_SHORT_ID, $intent->intentShortId );
+				$order->update_meta_data( self::META_CORRELATION_ID, $correlation_id );
+				$order->save();
+			} finally {
+				$timings['order_save_ms'] = ElapsedTime::milliseconds_since( $stage_started_at );
+			}
+
+			$last_stage = 'complete';
+			$outcome    = 'success';
 
 			return CheckoutResult::success( $intent->checkoutUrl, $intent->intentShortId );
 		} catch ( MissingApiKeyException $e ) {
@@ -227,6 +261,24 @@ class CheckoutSession {
 				$api_key,
 				$base_context
 			);
+		} finally {
+			try {
+				$this->logger->info(
+					'Spart checkout timing profile.',
+					array_merge(
+						$base_context,
+						$timings,
+						array(
+							'event'            => LogEvents::CHECKOUT_PROFILE,
+							'outcome'          => $outcome,
+							'last_stage'       => $last_stage,
+							'session_total_ms' => ElapsedTime::milliseconds_since( $session_started_at ),
+						)
+					)
+				);
+			} catch ( \Throwable $ignored ) {
+				unset( $ignored );
+			}
 		}//end try
 	}
 
