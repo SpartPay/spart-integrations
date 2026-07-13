@@ -160,12 +160,13 @@ if ( ! class_exists( 'WC_Order' ) ) {
                     public function get_name(): string { return (string) ( $this->row['name'] ?? '' ); }
                     public function get_quantity(): int { return (int) ( $this->row['qty'] ?? 1 ); }
                     public function get_product(): ?object {
-                        $img = $this->row['image'] ?? null;
-                        if ( $img === null ) { return null; }
-                        return new class( (string) $img ) {
-                            public function __construct( private string $img ) {}
-                            public function get_image_id(): int { return 1; }
-                            public function get_image_url(): string { return $this->img; }
+                        $image_id = isset( $this->row['image_id'] ) ? (int) $this->row['image_id'] : 0;
+                        if ( $image_id < 1 ) {
+                            return null;
+                        }
+                        return new class( $image_id ) {
+                            public function __construct( private int $image_id ) {}
+                            public function get_image_id(): int { return $this->image_id; }
                         };
                     }
                 };

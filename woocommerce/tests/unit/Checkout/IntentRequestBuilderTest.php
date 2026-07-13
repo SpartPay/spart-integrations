@@ -22,6 +22,8 @@ use Spart\WooCommerce\Checkout\SessionIdComposer;
  */
 final class IntentRequestBuilderTest extends TestCase {
 
+	private const PRODUCT_IMAGE_SIZE = 'medium';
+
 	protected function setUp(): void {
 		Monkey\setUp();
 		Monkey\Functions\when( 'home_url' )->justReturn( 'https://shop.example/' );
@@ -29,6 +31,17 @@ final class IntentRequestBuilderTest extends TestCase {
 		Monkey\Functions\when( 'wc_get_endpoint_url' )->alias(
 			// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter -- $permalink kept to match WC signature.
 			static fn ( $endpoint, $value = '', $permalink = '' ) => 'https://shop.example/checkout/order-received/' . (string) $value . '/'
+		);
+		Monkey\Functions\when( 'wp_get_attachment_image_url' )->alias(
+			static function ( $attachment_id, $size = 'thumbnail' ) {
+				self::assertSame( self::PRODUCT_IMAGE_SIZE, $size );
+				return match ( (int) $attachment_id ) {
+					101 => 'https://shop.example/wp-content/uploads/tshirt.jpg',
+					102 => '/wp-content/uploads/mug.jpg',
+					103 => 'not://a-url',
+					default => false,
+				};
+			}
 		);
 		// Default the locale resolvers to blank so existing assertions are
 		// unaffected (desiredLanguage resolves to null); individual tests
@@ -52,14 +65,14 @@ final class IntentRequestBuilderTest extends TestCase {
 				'last'     => 'Doe',
 				'items'    => array(
 					array(
-						'name'  => 'T-shirt',
-						'qty'   => 2,
-						'image' => 'https://shop.example/wp-content/uploads/tshirt.jpg',
+						'name'     => 'T-shirt',
+						'qty'      => 2,
+						'image_id' => 101,
 					),
 					array(
-						'name'  => 'Mug',
-						'qty'   => 1,
-						'image' => '/wp-content/uploads/mug.jpg',
+						'name'     => 'Mug',
+						'qty'      => 1,
+						'image_id' => 102,
 					),
 				),
 			)
@@ -110,9 +123,9 @@ final class IntentRequestBuilderTest extends TestCase {
 				'email'    => 'jane@example.com',
 				'items'    => array(
 					array(
-						'name'  => 'Item',
-						'qty'   => 1,
-						'image' => 'not://a-url',
+						'name'     => 'Item',
+						'qty'      => 1,
+						'image_id' => 103,
 					),
 				),
 			)

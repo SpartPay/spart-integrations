@@ -35,6 +35,8 @@ use Spart\WooCommerce\Settings\Schema;
  */
 final class IntentRequestBuilder {
 
+	private const LINE_ITEM_IMAGE_SIZE = 'medium';
+
 	/**
 	 * Constructor.
 	 *
@@ -138,13 +140,23 @@ final class IntentRequestBuilder {
 			$image_uri = null;
 			if ( method_exists( $item, 'get_product' ) ) {
 				$product = $item->get_product();
-				if ( null !== $product && method_exists( $product, 'get_image_url' ) ) {
-					$image_uri = $this->normalise_image_uri( (string) $product->get_image_url() );
+				if (
+					is_object( $product )
+					&& method_exists( $product, 'get_image_id' )
+					&& function_exists( 'wp_get_attachment_image_url' )
+				) {
+					$image_url = \wp_get_attachment_image_url(
+						(int) $product->get_image_id(),
+						self::LINE_ITEM_IMAGE_SIZE
+					);
+					if ( is_string( $image_url ) ) {
+						$image_uri = $this->normalise_image_uri( $image_url );
+					}
 				}
 			}
 
 			$out[] = new LineItem( $name, $qty, null, $image_uri );
-		}
+		}//end foreach
 		return $out;
 	}
 
