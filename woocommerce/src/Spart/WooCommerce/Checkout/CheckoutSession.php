@@ -110,7 +110,7 @@ class CheckoutSession {
 		try {
 			$sessions = new SessionIdComposer( $this->site_token() );
 			$request  = $this->request_builder->build( $order, $sessions );
-			$client   = $this->client_factory->create();
+			$client   = $this->client_factory->create( $base_context );
 			$intent   = $client->intents()->create( $request );
 
 			$this->logger->info(

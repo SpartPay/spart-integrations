@@ -98,6 +98,41 @@ final class CheckoutSessionTest extends TestCase {
 		$this->assertSame( 'abc', $result->intent_short_id() );
 	}
 
+	public function test_checkout_passes_correlation_context_to_client_factory(): void {
+		$order = $this->make_order();
+		$body  = (string) wp_json_encode(
+			array(
+				'isSuccessful' => true,
+				'value'        => array(
+					'intentShortId' => 'abc',
+					'checkoutUrl'   => 'https://pay.spart/abc',
+				),
+				'error'        => null,
+			)
+		);
+
+		$factory = Mockery::mock( SpartClientFactoryInterface::class );
+		$factory->shouldReceive( 'api_key' )->andReturn( 'sk_live_x' );
+		$factory->shouldReceive( 'create' )
+			->once()
+			->with(
+				Mockery::on(
+					static fn ( array $context ): bool =>
+						'corr-propagated' === ( $context['correlation_id'] ?? null )
+						&& 99 === ( $context['order_id'] ?? null )
+				)
+			)
+			->andReturn( $this->make_real_client_returning( 201, $body ) );
+
+		$result = ( new CheckoutSession(
+			$factory,
+			new IntentRequestBuilder( 10080 ),
+			new NullSpartLogger()
+		) )->checkout( $order, 'corr-propagated' );
+
+		$this->assertTrue( $result->is_success() );
+	}
+
 	public function test_missing_api_key_returns_friendly_failure(): void {
 		$factory = Mockery::mock( SpartClientFactoryInterface::class );
 		$factory->shouldReceive( 'create' )->andThrow( new MissingApiKeyException( 'no key' ) );

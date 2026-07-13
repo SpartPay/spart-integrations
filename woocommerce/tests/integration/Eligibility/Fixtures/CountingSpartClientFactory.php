@@ -30,11 +30,16 @@ final class CountingSpartClientFactory implements SpartClientFactoryInterface {
 
 	public function __construct( private readonly string $response_body ) {}
 
-	public function create(): SpartClient {
+	public function create( array $log_context = array() ): SpartClient {
+		unset( $log_context );
 		return $this->build_client();
 	}
 
-	public function create_with_timeout( int $seconds ): SpartClient {
+	public function create_with_timeout(
+		int $seconds,
+		array $log_context = array()
+	): SpartClient {
+		unset( $seconds, $log_context );
 		++$this->call_count;
 		return $this->build_client();
 	}
