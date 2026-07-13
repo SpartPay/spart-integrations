@@ -27,7 +27,8 @@ use Spart\WooCommerce\Plugin;
  *    we cannot afford 3 retries × 200ms.
  *  - userAgent = "spart-wc/<plugin-version> wp/<wp-version> wc/<wc-version>".
  *
- * Returns `new SpartClient($config, new WpHttpClientFactory())`.
+ * Returns `new SpartClient($config, new WpHttpClientFactory($this->logger, $log_context))`
+ * so HTTP request telemetry receives the optional logger and sanitized context.
  */
 final class WpSpartClientFactory implements SpartClientFactoryInterface {
 

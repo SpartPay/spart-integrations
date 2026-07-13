@@ -27,6 +27,8 @@ use Spart\WooCommerce\Logging\SpartLoggerInterface;
  */
 final class WpHttpClient implements HttpClient {
 
+	private const MAX_API_TRACE_ID_BYTES = 128;
+
 	/**
 	 * Creates a client with optional request-completion telemetry logging.
 	 *
@@ -128,12 +130,42 @@ final class WpHttpClient implements HttpClient {
 			$context['status_code'] = $status_code;
 		}
 
-		$api_trace_id = null !== $api_trace_id ? trim( $api_trace_id ) : '';
-		if ( '' !== $api_trace_id ) {
-			$context['api_trace_id'] = $api_trace_id;
+		$normalized_api_trace_id = self::normalise_api_trace_id( $api_trace_id );
+		if ( null !== $normalized_api_trace_id ) {
+			$context['api_trace_id'] = $normalized_api_trace_id;
 		}
 
 		$this->logger->info( 'Spart API request completed.', $context );
+	}
+
+	/**
+	 * Returns a log-safe API trace identifier or null when invalid.
+	 *
+	 * Accepts only trimmed, printable non-space ASCII values within the backend
+	 * contract's maximum length.
+	 *
+	 * @param string|null $api_trace_id Trace identifier returned by the Spart API.
+	 * @return string|null Sanitized trace identifier, or null when invalid.
+	 */
+	private static function normalise_api_trace_id( ?string $api_trace_id ): ?string {
+		if ( null === $api_trace_id ) {
+			return null;
+		}
+
+		$api_trace_id = trim( $api_trace_id );
+		if ( '' === $api_trace_id ) {
+			return null;
+		}
+
+		if ( strlen( $api_trace_id ) > self::MAX_API_TRACE_ID_BYTES ) {
+			return null;
+		}
+
+		if ( 1 !== preg_match( '/\A[\x21-\x7E]+\z/', $api_trace_id ) ) {
+			return null;
+		}
+
+		return $api_trace_id;
 	}
 
 	/**

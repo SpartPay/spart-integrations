@@ -120,10 +120,9 @@ final class WpHttpClientTest extends TestCase {
 			)
 		);
 
-		$calls   = $logger->calls_for_event( LogEvents::API_REQUEST_COMPLETED );
-		$context = $calls[0]['context'];
-
+		$calls = $logger->calls_for_event( LogEvents::API_REQUEST_COMPLETED );
 		$this->assertCount( 1, $calls );
+		$context = $calls[0]['context'];
 		$this->assertSame( 'info', $calls[0]['level'] );
 		$this->assertSame( 'corr-http-1', $context['correlation_id'] );
 		$this->assertSame( 42, $context['order_id'] );
@@ -140,6 +139,62 @@ final class WpHttpClientTest extends TestCase {
 		$this->assertStringNotContainsString( 'private@example.com', $encoded );
 		$this->assertStringNotContainsString( 'api.spartpay.com', $encoded );
 		$this->assertStringNotContainsString( 'ignored=yes', $encoded );
+	}
+
+	public function test_send_omits_api_trace_id_with_embedded_control_characters(): void {
+		Monkey\Functions\when( 'is_wp_error' )->alias( static fn ( $value ) => $value instanceof \WP_Error );
+		Monkey\Functions\when( 'wp_safe_remote_request' )->justReturn(
+			array(
+				'response' => array(
+					'code'    => 200,
+					'message' => 'OK',
+				),
+				'headers'  => array(
+					'x-trace-id' => " valid-trace\r\nbad",
+				),
+				'body'     => '{}',
+			)
+		);
+		Monkey\Functions\when( 'wp_remote_retrieve_response_code' )->alias( static fn ( $response ) => $response['response']['code'] );
+		Monkey\Functions\when( 'wp_remote_retrieve_headers' )->alias( static fn ( $response ) => $response['headers'] );
+		Monkey\Functions\when( 'wp_remote_retrieve_body' )->alias( static fn ( $response ) => $response['body'] );
+
+		$logger = new RecordingSpartLogger();
+		$client = new WpHttpClient( $logger );
+
+		$client->send( new HttpRequest( 'GET', 'https://api.spartpay.com/api/intents' ) );
+
+		$calls = $logger->calls_for_event( LogEvents::API_REQUEST_COMPLETED );
+		$this->assertCount( 1, $calls );
+		$this->assertArrayNotHasKey( 'api_trace_id', $calls[0]['context'] );
+	}
+
+	public function test_send_omits_api_trace_id_longer_than_128_bytes(): void {
+		Monkey\Functions\when( 'is_wp_error' )->alias( static fn ( $value ) => $value instanceof \WP_Error );
+		Monkey\Functions\when( 'wp_safe_remote_request' )->justReturn(
+			array(
+				'response' => array(
+					'code'    => 200,
+					'message' => 'OK',
+				),
+				'headers'  => array(
+					'x-trace-id' => str_repeat( 'a', 129 ),
+				),
+				'body'     => '{}',
+			)
+		);
+		Monkey\Functions\when( 'wp_remote_retrieve_response_code' )->alias( static fn ( $response ) => $response['response']['code'] );
+		Monkey\Functions\when( 'wp_remote_retrieve_headers' )->alias( static fn ( $response ) => $response['headers'] );
+		Monkey\Functions\when( 'wp_remote_retrieve_body' )->alias( static fn ( $response ) => $response['body'] );
+
+		$logger = new RecordingSpartLogger();
+		$client = new WpHttpClient( $logger );
+
+		$client->send( new HttpRequest( 'GET', 'https://api.spartpay.com/api/intents' ) );
+
+		$calls = $logger->calls_for_event( LogEvents::API_REQUEST_COMPLETED );
+		$this->assertCount( 1, $calls );
+		$this->assertArrayNotHasKey( 'api_trace_id', $calls[0]['context'] );
 	}
 
 	public function test_send_translates_curl_28_to_spart_timeout_exception(): void {

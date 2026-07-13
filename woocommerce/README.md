@@ -61,7 +61,10 @@ The key events are:
   order-save, and session-total timings;
 - `spart_api_request_completed`: HTTP round-trip, outcome/status, and the
   backend's `api_trace_id`;
-- `spart_checkout_succeeded`: gateway-total and whole-request timings.
+- `spart_checkout_succeeded`: on successful checkout only, gateway-total and
+  whole-request timings.
+
+For failed checkouts, use `spart_checkout_profile.session_total_ms`.
 
 If `http_round_trip_ms` dominates, open `api_trace_id` in Application Insights
 and compare the backend trace duration. Similar durations point to backend
