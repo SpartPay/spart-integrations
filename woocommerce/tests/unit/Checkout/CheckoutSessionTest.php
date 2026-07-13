@@ -174,6 +174,53 @@ final class CheckoutSessionTest extends TestCase {
 		}
 	}
 
+	public function test_checkout_does_not_swallow_profile_logger_exception(): void {
+		$order = $this->make_order();
+		$body  = (string) wp_json_encode(
+			array(
+				'isSuccessful' => true,
+				'value'        => array(
+					'intentShortId' => 'abc',
+					'checkoutUrl'   => 'https://pay.spart/abc',
+				),
+				'error'        => null,
+			)
+		);
+
+		$factory = Mockery::mock( SpartClientFactoryInterface::class );
+		$factory->shouldReceive( 'api_key' )->andReturn( 'sk_live_x' );
+		$factory->shouldReceive( 'create' )->andReturn( $this->make_real_client_returning( 201, $body ) );
+		$logger = new class() implements SpartLoggerInterface {
+			public function info( string $message, array $context = array() ): void {
+				unset( $message );
+				if ( LogEvents::CHECKOUT_PROFILE === ( $context['event'] ?? null ) ) {
+					throw new \RuntimeException( 'profile logger failed' );
+				}
+			}
+
+			public function warning( string $message, array $context = array() ): void {
+				unset( $message, $context );
+			}
+
+			public function error( string $message, array $context = array() ): void {
+				unset( $message, $context );
+			}
+
+			public function debug( string $message, array $context = array() ): void {
+				unset( $message, $context );
+			}
+		};
+
+		$this->expectException( \RuntimeException::class );
+		$this->expectExceptionMessage( 'profile logger failed' );
+
+		( new CheckoutSession(
+			$factory,
+			new IntentRequestBuilder( 10080 ),
+			$logger
+		) )->checkout( $order, 'corr-profile-logger-throws' );
+	}
+
 	public function test_checkout_profiles_request_build_failure(): void {
 		$factory = Mockery::mock( SpartClientFactoryInterface::class );
 		$factory->shouldReceive( 'api_key' )->andReturn( 'sk_live_x' );
@@ -230,7 +277,9 @@ final class CheckoutSessionTest extends TestCase {
 		$this->assertFalse( $result->is_success() );
 		$calls = $logger->calls_for_event( LogEvents::CHECKOUT_PROFILE );
 		$this->assertCount( 1, $calls );
+		$this->assertSame( 'failure', $calls[0]['context']['outcome'] );
 		$this->assertSame( 'intent_request', $calls[0]['context']['last_stage'] );
+		$this->assertArrayHasKey( 'client_create_ms', $calls[0]['context'] );
 		$this->assertArrayHasKey( 'intent_request_ms', $calls[0]['context'] );
 		$this->assertArrayNotHasKey( 'order_save_ms', $calls[0]['context'] );
 	}
@@ -461,6 +510,7 @@ final class CheckoutSessionTest extends TestCase {
 		$this->assertFalse( $result->is_success() );
 		$calls = $logger->calls_for_event( LogEvents::CHECKOUT_PROFILE );
 		$this->assertCount( 1, $calls );
+		$this->assertSame( 'failure', $calls[0]['context']['outcome'] );
 		$this->assertSame( 'order_save', $calls[0]['context']['last_stage'] );
 		$this->assertArrayHasKey( 'order_save_ms', $calls[0]['context'] );
 	}

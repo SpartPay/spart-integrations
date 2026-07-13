@@ -262,23 +262,19 @@ class CheckoutSession {
 				$base_context
 			);
 		} finally {
-			try {
-				$this->logger->info(
-					'Spart checkout timing profile.',
-					array_merge(
-						$base_context,
-						$timings,
-						array(
-							'event'            => LogEvents::CHECKOUT_PROFILE,
-							'outcome'          => $outcome,
-							'last_stage'       => $last_stage,
-							'session_total_ms' => ElapsedTime::milliseconds_since( $session_started_at ),
-						)
+			$this->logger->info(
+				'Spart checkout timing profile.',
+				array_merge(
+					$base_context,
+					$timings,
+					array(
+						'event'            => LogEvents::CHECKOUT_PROFILE,
+						'outcome'          => $outcome,
+						'last_stage'       => $last_stage,
+						'session_total_ms' => ElapsedTime::milliseconds_since( $session_started_at ),
 					)
-				);
-			} catch ( \Throwable $ignored ) {
-				unset( $ignored );
-			}
+				)
+			);
 		}//end try
 	}
 
