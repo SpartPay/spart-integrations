@@ -9,21 +9,62 @@ declare(strict_types=1);
 
 namespace Spart\WooCommerce\Tests\Unit\Http;
 
+use Brain\Monkey;
 use PHPUnit\Framework\TestCase;
 use Spart\Sdk\Http\HttpClient;
+use Spart\Sdk\Http\HttpRequest;
 use Spart\WooCommerce\Http\WpHttpClient;
 use Spart\WooCommerce\Http\WpHttpClientFactory;
+use Spart\WooCommerce\Logging\LogEvents;
+use Spart\WooCommerce\Tests\Unit\Fixtures\RecordingSpartLogger;
 
 /**
  * @covers \Spart\WooCommerce\Http\WpHttpClientFactory
  */
 final class WpHttpClientFactoryTest extends TestCase {
 
+	protected function setUp(): void {
+		parent::setUp();
+		Monkey\setUp();
+	}
+
+	protected function tearDown(): void {
+		Monkey\tearDown();
+		parent::tearDown();
+	}
+
 	public function test_create_client_returns_wp_http_client(): void {
 		$factory = new WpHttpClientFactory();
 		$client  = $factory->createClient();
 		$this->assertInstanceOf( WpHttpClient::class, $client );
 		$this->assertInstanceOf( HttpClient::class, $client );
+	}
+
+	public function test_create_client_carries_logger_and_context(): void {
+		Monkey\Functions\when( 'is_wp_error' )->justReturn( false );
+		Monkey\Functions\when( 'wp_safe_remote_request' )->justReturn(
+			array(
+				'response' => array( 'code' => 200 ),
+				'headers'  => array( 'x-trace-id' => 'trace-from-factory' ),
+				'body'     => '{}',
+			)
+		);
+		Monkey\Functions\when( 'wp_remote_retrieve_response_code' )->alias( static fn ( $response ) => $response['response']['code'] );
+		Monkey\Functions\when( 'wp_remote_retrieve_headers' )->alias( static fn ( $response ) => $response['headers'] );
+		Monkey\Functions\when( 'wp_remote_retrieve_body' )->alias( static fn ( $response ) => $response['body'] );
+
+		$logger = new RecordingSpartLogger();
+		$client = ( new WpHttpClientFactory(
+			$logger,
+			array( 'correlation_id' => 'corr-factory' )
+		) )->createClient();
+
+		$client->send( new HttpRequest( 'GET', 'https://api.spartpay.com/api/merchants/eligibility' ) );
+
+		$calls = $logger->calls_for_event( LogEvents::API_REQUEST_COMPLETED );
+		$this->assertCount( 1, $calls );
+		$this->assertSame( 'corr-factory', $calls[0]['context']['correlation_id'] );
+		$this->assertSame( 'trace-from-factory', $calls[0]['context']['api_trace_id'] );
 	}
 
 	public function test_base_url_for_live(): void {

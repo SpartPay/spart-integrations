@@ -11,6 +11,7 @@ namespace Spart\WooCommerce\Http;
 
 use Spart\Sdk\Http\HttpClient;
 use Spart\Sdk\Http\HttpClientFactory;
+use Spart\WooCommerce\Logging\SpartLoggerInterface;
 
 /**
  * Builds WpHttpClient instances and exposes the canonical Spart base URLs.
@@ -25,12 +26,23 @@ final class WpHttpClientFactory implements HttpClientFactory {
 	private const SANDBOX_BASE_URL = 'https://sandbox-api.spartpay.com';
 
 	/**
+	 * Creates a factory that propagates sanitized telemetry context to clients.
+	 *
+	 * @param SpartLoggerInterface|null $logger Optional logger for request-completion telemetry.
+	 * @param array<string, mixed>      $log_context Sanitized context copied to each client.
+	 */
+	public function __construct(
+		private readonly ?SpartLoggerInterface $logger = null,
+		private readonly array $log_context = array(),
+	) {}
+
+	/**
 	 * Returns a fresh WpHttpClient.
 	 *
 	 * @return HttpClient
 	 */
 	public function createClient(): HttpClient {
-		return new WpHttpClient();
+		return new WpHttpClient( $this->logger, $this->log_context );
 	}
 
 	/**
