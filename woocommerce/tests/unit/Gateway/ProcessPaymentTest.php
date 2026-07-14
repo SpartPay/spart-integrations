@@ -16,7 +16,9 @@ use Spart\WooCommerce\Checkout\CheckoutResult;
 use Spart\WooCommerce\Checkout\CheckoutSession;
 use Spart\WooCommerce\Checkout\FailureCode;
 use Spart\WooCommerce\Gateway\WC_Gateway_Spart;
+use Spart\WooCommerce\Logging\LogEvents;
 use Spart\WooCommerce\Plugin;
+use Spart\WooCommerce\Tests\Unit\Fixtures\RecordingSpartLogger;
 use Spart\WooCommerce\Tests\Unit\Gateway\Fixtures\DisposerSpy;
 
 /**
@@ -65,10 +67,83 @@ final class ProcessPaymentTest extends TestCase {
 		$this->assertSame( 'https://pay.spart/abc', $out['redirect'] );
 	}
 
+	public function test_success_logs_pre_gateway_gateway_and_request_timings(): void {
+		$order = $this->order( 88 );
+		Monkey\Functions\when( 'wc_get_order' )->justReturn( $order );
+		Monkey\Functions\when( 'wp_generate_uuid4' )->justReturn( 'corr-gateway-timing' );
+
+		$session = Mockery::mock( CheckoutSession::class );
+		$session->shouldReceive( 'checkout' )
+			->with( $order, 'corr-gateway-timing' )
+			->andReturn( CheckoutResult::success( 'https://pay.spart/timing', 'timing' ) );
+		$this->inject_session( $session );
+
+		$logger = new RecordingSpartLogger();
+		Plugin::set_logger_for_tests( $logger );
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Test fixture overrides the server timestamp and restores it below.
+		$previous_request_time         = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+		$_SERVER['REQUEST_TIME_FLOAT'] = microtime( true ) - 0.25;
+
+		try {
+			$result = ( new WC_Gateway_Spart() )->process_payment( 88 );
+		} finally {
+			if ( null === $previous_request_time ) {
+				unset( $_SERVER['REQUEST_TIME_FLOAT'] );
+			} else {
+				$_SERVER['REQUEST_TIME_FLOAT'] = $previous_request_time;
+			}
+		}
+
+		$this->assertSame( 'success', $result['result'] );
+		$started = $logger->calls_for_event( LogEvents::CHECKOUT_STARTED );
+		$success = $logger->calls_for_event( LogEvents::CHECKOUT_SUCCEEDED );
+		$this->assertCount( 1, $started );
+		$this->assertCount( 1, $success );
+		$this->assertGreaterThanOrEqual( 200.0, $started[0]['context']['request_before_gateway_ms'] );
+		$this->assertIsFloat( $success[0]['context']['gateway_total_ms'] );
+		$this->assertGreaterThanOrEqual( 0.0, $success[0]['context']['gateway_total_ms'] );
+		$this->assertGreaterThanOrEqual( 200.0, $success[0]['context']['request_total_ms'] );
+	}
+
+	public function test_success_omits_request_timings_when_server_timestamp_is_missing(): void {
+		$order = $this->order( 89 );
+		Monkey\Functions\when( 'wc_get_order' )->justReturn( $order );
+		Monkey\Functions\when( 'wp_generate_uuid4' )->justReturn( 'corr-no-request-time' );
+
+		$session = Mockery::mock( CheckoutSession::class );
+		$session->shouldReceive( 'checkout' )
+			->andReturn( CheckoutResult::success( 'https://pay.spart/timing', 'timing' ) );
+		$this->inject_session( $session );
+
+		$logger = new RecordingSpartLogger();
+		Plugin::set_logger_for_tests( $logger );
+
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Test fixture removes the server timestamp and restores it below.
+		$previous_request_time = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+		unset( $_SERVER['REQUEST_TIME_FLOAT'] );
+
+		try {
+			$result = ( new WC_Gateway_Spart() )->process_payment( 89 );
+		} finally {
+			if ( null !== $previous_request_time ) {
+				$_SERVER['REQUEST_TIME_FLOAT'] = $previous_request_time;
+			}
+		}
+
+		$this->assertSame( 'success', $result['result'] );
+		$started = $logger->calls_for_event( LogEvents::CHECKOUT_STARTED );
+		$success = $logger->calls_for_event( LogEvents::CHECKOUT_SUCCEEDED );
+		$this->assertArrayNotHasKey( 'request_before_gateway_ms', $started[0]['context'] );
+		$this->assertArrayNotHasKey( 'request_total_ms', $success[0]['context'] );
+		$this->assertArrayHasKey( 'gateway_total_ms', $success[0]['context'] );
+	}
+
 	public function test_failure_returns_fail_result_and_adds_notice(): void {
 		$order    = $this->order( 7 );
 		$captured = array();
 		Monkey\Functions\when( 'wc_get_order' )->justReturn( $order );
+		Monkey\Functions\when( 'wp_generate_uuid4' )->justReturn( 'corr-failure-notice' );
 		Monkey\Functions\when( 'wc_add_notice' )->alias(
 			static function ( $msg, $type = 'success' ) use ( &$captured ): void {
 				$captured[] = array(

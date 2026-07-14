@@ -140,6 +140,17 @@ final class PluginTest extends TestCase {
 		Plugin::webhook_receiver();
 	}
 
+	public function test_checkout_and_eligibility_factories_accept_filtered_logger_wiring(): void {
+		$this->assertInstanceOf(
+			\Spart\WooCommerce\Checkout\CheckoutSession::class,
+			Plugin::checkout_session()
+		);
+		$this->assertInstanceOf(
+			EligibilityChecker::class,
+			Plugin::eligibility_checker()
+		);
+	}
+
 	/**
 	 * Plugin::webhook_cleanup() returns a CleanupCron instance memoized for the request.
 	 *

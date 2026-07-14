@@ -11,6 +11,7 @@ namespace Spart\WooCommerce\Gateway;
 
 use Spart\WooCommerce\Eligibility\EligibilityChecker;
 use Spart\WooCommerce\Http\WpHttpClientFactory;
+use Spart\WooCommerce\Logging\ElapsedTime;
 use Spart\WooCommerce\Logging\LogEvents;
 use Spart\WooCommerce\Plugin;
 use Spart\WooCommerce\Settings\Schema;
@@ -502,12 +503,17 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 			);
 		}
 
-		$correlation_id = function_exists( 'wp_generate_uuid4' ) ? \wp_generate_uuid4() : bin2hex( random_bytes( 16 ) );
-		$base_context   = array(
+		$gateway_started_at        = ElapsedTime::start();
+		$correlation_id            = function_exists( 'wp_generate_uuid4' ) ? \wp_generate_uuid4() : bin2hex( random_bytes( 16 ) );
+		$base_context              = array(
 			'correlation_id' => $correlation_id,
 			'order_id'       => $order->get_id(),
 			'environment'    => $this->environment_for_logs(),
 		);
+		$request_before_gateway_ms = self::request_elapsed_milliseconds();
+		if ( null !== $request_before_gateway_ms ) {
+			$base_context['request_before_gateway_ms'] = $request_before_gateway_ms;
+		}
 
 		Plugin::logger()->info(
 			'Spart checkout started.',
@@ -528,15 +534,43 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 			);
 		}
 
+		$success_context  = array_merge(
+			$base_context,
+			array(
+				'event'            => LogEvents::CHECKOUT_SUCCEEDED,
+				'gateway_total_ms' => ElapsedTime::milliseconds_since( $gateway_started_at ),
+			)
+		);
+		$request_total_ms = self::request_elapsed_milliseconds();
+		if ( null !== $request_total_ms ) {
+			$success_context['request_total_ms'] = $request_total_ms;
+		}
+
 		Plugin::logger()->info(
 			'Spart checkout succeeded; redirecting shopper.',
-			array_merge( $base_context, array( 'event' => LogEvents::CHECKOUT_SUCCEEDED ) )
+			$success_context
 		);
 
 		return array(
 			'result'   => 'success',
 			'redirect' => $result->redirect_url(),
 		);
+	}
+
+	/**
+	 * Measure elapsed request time from the server-provided request start.
+	 *
+	 * @return float|null
+	 */
+	private static function request_elapsed_milliseconds(): ?float {
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized,WordPress.Security.ValidatedSanitizedInput.MissingUnslash -- Server-provided numeric request timestamp; validated below and never rendered.
+		$started_at = $_SERVER['REQUEST_TIME_FLOAT'] ?? null;
+		if ( ! is_numeric( $started_at ) ) {
+			return null;
+		}
+
+		$elapsed = max( 0.0, \microtime( true ) - (float) $started_at );
+		return round( $elapsed * 1000, 3 );
 	}
 
 	/**

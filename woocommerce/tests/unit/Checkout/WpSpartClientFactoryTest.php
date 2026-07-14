@@ -118,6 +118,24 @@ final class WpSpartClientFactoryTest extends TestCase {
 		$this->assertSame( 2, $client->config->timeoutSeconds );
 	}
 
+	public function test_create_accepts_sanitized_log_context_without_changing_config(): void {
+		Monkey\Functions\when( 'get_option' )->alias(
+			static fn ( $key, $default ) => 'woocommerce_spart_settings' === $key
+				? array(
+					'api_key'     => 'sk_live_xyz',
+					'environment' => 'live',
+				)
+				: $default
+		);
+
+		$client = ( new WpSpartClientFactory() )->create(
+			array( 'correlation_id' => 'corr-config' )
+		);
+
+		$this->assertSame( 'https://api.spartpay.com', $client->config->baseUrl );
+		$this->assertSame( 30, $client->config->timeoutSeconds );
+	}
+
 	public function test_create_with_timeout_propagates_missing_key(): void {
 		Monkey\Functions\when( 'get_option' )->alias(
 			static fn ( $k, $d ) => 'woocommerce_spart_settings' === $k

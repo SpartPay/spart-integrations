@@ -1,6 +1,6 @@
 <?php
 /**
- * Logging\LogEvents — canonical event-name constants for spart checkout logs.
+ * Logging\LogEvents — canonical event-name constants for spart telemetry logs.
  *
  * @package Spart\WooCommerce\Logging
  */
@@ -10,10 +10,9 @@ declare(strict_types=1);
 namespace Spart\WooCommerce\Logging;
 
 /**
- * Single source of truth for the `event` key in every spart checkout log
- * line. The eight CHECKOUT_*, INTENT_*, ORDER_* and DISPOSAL_* events
- * mirror the contract documented in
- * the destroy-order-on-checkout-failure design §3.8.
+ * Single source of truth for the `event` key in spart telemetry log lines.
+ * These constants mirror the contracts documented across checkout, order
+ * disposal, eligibility, and request-timing telemetry.
  *
  * The CHECKOUT_SUCCEEDED constant is a plugin-side convenience (not part
  * of the spec §3.8 table, which covers failed checkouts only). It marks
@@ -26,15 +25,17 @@ namespace Spart\WooCommerce\Logging;
  */
 final class LogEvents {
 
-	public const CHECKOUT_STARTED   = 'spart_checkout_started';
-	public const CHECKOUT_SUCCEEDED = 'spart_checkout_succeeded';
-	public const CHECKOUT_FAILED    = 'spart_checkout_failed';
-	public const INTENT_CREATED     = 'spart_intent_created';
-	public const ORDER_DISPOSING    = 'spart_order_disposing';
-	public const COUPONS_RELEASED   = 'spart_coupons_released';
-	public const STOCK_RESTORED     = 'spart_stock_restored';
-	public const ORDER_DELETED      = 'spart_order_deleted';
-	public const DISPOSAL_FAILED    = 'spart_disposal_failed';
+	public const CHECKOUT_STARTED      = 'spart_checkout_started';
+	public const CHECKOUT_SUCCEEDED    = 'spart_checkout_succeeded';
+	public const CHECKOUT_FAILED       = 'spart_checkout_failed';
+	public const API_REQUEST_COMPLETED = 'spart_api_request_completed';
+	public const INTENT_CREATED        = 'spart_intent_created';
+	public const CHECKOUT_PROFILE      = 'spart_checkout_profile';
+	public const ORDER_DISPOSING       = 'spart_order_disposing';
+	public const COUPONS_RELEASED      = 'spart_coupons_released';
+	public const STOCK_RESTORED        = 'spart_stock_restored';
+	public const ORDER_DELETED         = 'spart_order_deleted';
+	public const DISPOSAL_FAILED       = 'spart_disposal_failed';
 	/**
 	 * Defense-in-depth event (NOT in spec §3.8) — emitted when the
 	 * disposer is invoked against an order whose status has already

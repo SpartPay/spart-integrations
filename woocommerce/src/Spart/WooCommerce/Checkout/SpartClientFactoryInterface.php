@@ -21,9 +21,11 @@ interface SpartClientFactoryInterface {
 	/**
 	 * Build a configured SpartClient ready to call the Spart API.
 	 *
+	 * @param array<string, mixed> $log_context Sanitized context for HTTP telemetry.
+	 *
 	 * @throws MissingApiKeyException When the merchant has not configured an API key.
 	 */
-	public function create(): SpartClient;
+	public function create( array $log_context = array() ): SpartClient;
 
 	/**
 	 * Build a configured SpartClient using a non-default request timeout.
@@ -34,11 +36,15 @@ interface SpartClientFactoryInterface {
 	 * mis-configured Spart API must not block WooCommerce's checkout
 	 * page from rendering for the merchant for tens of seconds.
 	 *
-	 * @param int $timeout_seconds Per-request HTTP timeout, in whole seconds.
+	 * @param int                  $timeout_seconds Per-request HTTP timeout.
+	 * @param array<string, mixed> $log_context     Sanitized context for HTTP telemetry.
 	 *
 	 * @throws MissingApiKeyException When the merchant has not configured an API key.
 	 */
-	public function create_with_timeout( int $timeout_seconds ): SpartClient;
+	public function create_with_timeout(
+		int $timeout_seconds,
+		array $log_context = array()
+	): SpartClient;
 
 	/**
 	 * Currently-configured API key (used by ErrorSanitizer to redact it from

@@ -13,6 +13,7 @@ use Spart\Sdk\Retry\RetryPolicy;
 use Spart\Sdk\SpartClient;
 use Spart\Sdk\SpartClientConfig;
 use Spart\WooCommerce\Http\WpHttpClientFactory;
+use Spart\WooCommerce\Logging\SpartLoggerInterface;
 use Spart\WooCommerce\Plugin;
 
 /**
@@ -26,7 +27,8 @@ use Spart\WooCommerce\Plugin;
  *    we cannot afford 3 retries × 200ms.
  *  - userAgent = "spart-wc/<plugin-version> wp/<wp-version> wc/<wc-version>".
  *
- * Returns `new SpartClient($config, new WpHttpClientFactory())`.
+ * Returns `new SpartClient($config, new WpHttpClientFactory($this->logger, $log_context))`
+ * so HTTP request telemetry receives the optional logger and sanitized context.
  */
 final class WpSpartClientFactory implements SpartClientFactoryInterface {
 
@@ -35,12 +37,23 @@ final class WpSpartClientFactory implements SpartClientFactoryInterface {
 	private const DEFAULT_TIMEOUT_S   = 30;
 
 	/**
+	 * Build a factory that can attach sanitized telemetry context to SDK clients.
+	 *
+	 * @param SpartLoggerInterface|null $logger Optional logger for HTTP telemetry.
+	 */
+	public function __construct(
+		private readonly ?SpartLoggerInterface $logger = null,
+	) {}
+
+	/**
 	 * Build a configured SpartClient.
+	 *
+	 * @param array<string, mixed> $log_context Sanitized context for HTTP telemetry.
 	 *
 	 * @throws MissingApiKeyException When the merchant has not configured an API key.
 	 */
-	public function create(): SpartClient {
-		return $this->create_with_timeout( self::DEFAULT_TIMEOUT_S );
+	public function create( array $log_context = array() ): SpartClient {
+		return $this->create_with_timeout( self::DEFAULT_TIMEOUT_S, $log_context );
 	}
 
 	/**
@@ -51,11 +64,15 @@ final class WpSpartClientFactory implements SpartClientFactoryInterface {
 	 * checkout default — a non-responsive Spart API must not block the
 	 * merchant's WP admin from rendering for tens of seconds.
 	 *
-	 * @param int $timeout_seconds Per-request HTTP timeout, in whole seconds.
+	 * @param int                  $timeout_seconds Per-request HTTP timeout, in whole seconds.
+	 * @param array<string, mixed> $log_context     Sanitized context for HTTP telemetry.
 	 *
 	 * @throws MissingApiKeyException When the merchant has not configured an API key.
 	 */
-	public function create_with_timeout( int $timeout_seconds ): SpartClient {
+	public function create_with_timeout(
+		int $timeout_seconds,
+		array $log_context = array()
+	): SpartClient {
 		$api_key = $this->api_key();
 		if ( '' === $api_key ) {
 			throw new MissingApiKeyException( 'Spart API key is not configured.' );
@@ -69,7 +86,10 @@ final class WpSpartClientFactory implements SpartClientFactoryInterface {
 			userAgent: $this->user_agent(),
 		);
 
-		return new SpartClient( $config, new WpHttpClientFactory() );
+		return new SpartClient(
+			$config,
+			new WpHttpClientFactory( $this->logger, $log_context )
+		);
 	}
 
 	/**
