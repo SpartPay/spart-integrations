@@ -66,6 +66,12 @@ final class CheckoutSessionTest extends TestCase {
 			// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- We ARE the wp_json_encode stub.
 			static fn ( $data ) => json_encode( $data )
 		);
+		// Brain Monkey defines these as real functions for the rest of the
+		// process, so a stub set inside one test would otherwise leak into
+		// every later test in this class. Pin them here (as
+		// IntentRequestBuilderTest does) and let individual tests override.
+		Monkey\Functions\when( 'determine_locale' )->justReturn( '' );
+		Monkey\Functions\when( 'get_locale' )->justReturn( '' );
 	}
 
 	protected function tearDown(): void {
@@ -415,6 +421,75 @@ final class CheckoutSessionTest extends TestCase {
 		$this->assertNotEmpty( $logger->calls );
 		$this->assertSame( 'corr-xyz', $logger->calls[0]['context']['correlation_id'] ?? null );
 		$this->assertSame( $order->get_id(), $logger->calls[0]['context']['order_id'] ?? null );
+	}
+
+	/**
+	 * The language we ask Spart to use is resolved silently inside
+	 * IntentRequestBuilder and never echoed back by the API, so without this
+	 * field a "my shoppers get the wrong language" report cannot be diagnosed
+	 * from `wc-logs/spart-*.log` at all.
+	 */
+	public function test_intent_created_log_includes_desired_language(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( 'fr_FR' );
+
+		$logger = new RecordingSpartLogger();
+		$this->run_successful_checkout( $logger );
+
+		$created = $logger->calls_for_event( LogEvents::INTENT_CREATED );
+		$this->assertCount( 1, $created );
+		$this->assertSame(
+			'fr_FR',
+			$created[0]['context']['desired_language'] ?? null,
+			'the locale sent as CreateIntentRequest::desiredLanguage MUST appear in the intent-created log line'
+		);
+	}
+
+	/**
+	 * Distinguishes "we sent no language at all" from "we sent one the server
+	 * did not support" — the two have identical symptoms for the shopper but
+	 * completely different fixes.
+	 */
+	public function test_intent_created_log_reports_null_desired_language_when_locale_unavailable(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( '' );
+		Monkey\Functions\when( 'get_locale' )->justReturn( '' );
+
+		$logger = new RecordingSpartLogger();
+		$this->run_successful_checkout( $logger );
+
+		$created = $logger->calls_for_event( LogEvents::INTENT_CREATED );
+		$this->assertCount( 1, $created );
+		$this->assertArrayHasKey(
+			'desired_language',
+			$created[0]['context'],
+			'the key MUST be present even when null, so an absent language is distinguishable from an unsupported one'
+		);
+		$this->assertNull( $created[0]['context']['desired_language'] );
+	}
+
+	/**
+	 * Drives a successful checkout through a real IntentRequestBuilder so the
+	 * locale resolution under test is the production one.
+	 */
+	private function run_successful_checkout( SpartLoggerInterface $logger ): void {
+		$body = (string) wp_json_encode(
+			array(
+				'isSuccessful' => true,
+				'value'        => array(
+					'intentShortId' => 'abc',
+					'checkoutUrl'   => 'https://pay.spart/abc',
+				),
+				'error'        => null,
+			)
+		);
+
+		$factory = Mockery::mock( SpartClientFactoryInterface::class );
+		$factory->shouldReceive( 'api_key' )->andReturn( 'sk_live_x' );
+		$factory->shouldReceive( 'create' )->andReturn( $this->make_real_client_returning( 201, $body ) );
+
+		$session = new CheckoutSession( $factory, new IntentRequestBuilder( 10080 ), $logger );
+		$result  = $session->checkout( $this->make_order(), 'corr-lang' );
+
+		$this->assertTrue( $result->is_success() );
 	}
 
 	public function test_successful_checkout_persists_correlation_id_to_order_meta(): void {
