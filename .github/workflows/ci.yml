@@ -44,7 +44,11 @@ jobs:
         with:
           working-directory: integrations/woocommerce
       - run: composer phpcs
-      - run: composer phpstan -- --no-progress --memory-limit=1G
+      # phpstan.neon.dist loads the full WordPress (~11MB) and WooCommerce stub
+      # files via bootstrapFiles, which parses both in every parallel worker.
+      # That sat just under 1G until runner-side drift pushed it over, breaking
+      # main. Raised to unblock; the real fix is scanFiles instead of bootstrapFiles.
+      - run: composer phpstan -- --no-progress --memory-limit=2G
 
   php-unit:
     name: PHP unit

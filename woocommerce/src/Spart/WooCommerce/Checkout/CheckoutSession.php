@@ -143,9 +143,15 @@ class CheckoutSession {
 				array_merge(
 					$base_context,
 					array(
-						'event'           => LogEvents::INTENT_CREATED,
-						'intent_short_id' => $intent->intentShortId,
-						'replay'          => $intent->wasIdempotentReplay,
+						'event'            => LogEvents::INTENT_CREATED,
+						'intent_short_id'  => $intent->intentShortId,
+						'replay'           => $intent->wasIdempotentReplay,
+						// The locale we asked Spart to communicate in. Spart
+						// never echoes it back, so this is the only record of
+						// what was requested; null means no locale was
+						// resolvable, which is a different fault from sending
+						// one Spart does not support.
+						'desired_language' => $request->desiredLanguage,
 					)
 				)
 			);

@@ -15,6 +15,14 @@ versions follow [Semantic Versioning](https://semver.org/).
   (defaults to `null`). Requires `spart/sdk` with `CreateIntentRequest`'s
   `desiredLanguage` field.
 
+- **Shopper language recorded in the checkout log.** The `spart_intent_created`
+  log line now carries `desired_language`, the locale actually sent to Spart.
+  Spart never echoes the value back, so this was previously unobservable from
+  either end: a "my shoppers get the wrong language" report could not be
+  attributed to the plugin sending nothing versus sending a locale Spart does
+  not support. The key is always present, and is `null` when no locale could be
+  resolved, so the two cases are distinguishable in `wc-logs/spart-*.log`.
+
 - **Spart order short ID on the order page.** The per-order **Spart Info** meta
   box (formerly "Spart webhook deliveries") now shows the Spart **order short
   ID** as its first row — the same identifier merchants see on the Spart
