@@ -113,7 +113,7 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 	public function test_enqueue_front_styles_registers_and_enqueues_spart_css_when_messaging_enabled(): void {
 		Functions\expect( 'wp_enqueue_script' )->once()->with(
 			'spart-storefront-dialog',
-			'https://example.test/wp-content/plugins/spart-woocommerce/assets/css/spart.css',
+			'https://example.test/wp-content/plugins/spart-woocommerce/assets/js/storefront-dialog.js',
 			array(),
 			'0.5.1',
 			true
@@ -124,7 +124,9 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 				'messaging_enabled_cart'    => 'no',
 			)
 		);
-		Functions\when( 'plugins_url' )->justReturn( 'https://example.test/wp-content/plugins/spart-woocommerce/assets/css/spart.css' );
+		Functions\when( 'plugins_url' )->alias(
+			static fn( string $path ): string => 'https://example.test/wp-content/plugins/spart-woocommerce/' . ltrim( $path, '/' )
+		);
 		Functions\when( 'plugin_dir_path' )->justReturn( '/var/www/spart-woocommerce/' );
 		Functions\when( 'trailingslashit' )->returnArg( 1 );
 		Functions\when( 'is_product' )->justReturn( true );
