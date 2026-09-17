@@ -1,6 +1,6 @@
 <?php
 /**
- * Optional checkout loading screen and its small settings-page adapter.
+ * Checkout loading screen and settings adapter.
  *
  * @package Spart\WooCommerce
  */
@@ -11,11 +11,11 @@ namespace Spart\WooCommerce\Checkout;
 
 use Spart\WooCommerce\Plugin;
 
-/** Owns loading-screen validation and WordPress asset registration. */
+/** Loading-screen validation and WordPress assets. */
 final class LoadingScreen {
 
 	/**
-	 * Set the plugin asset location and cache version.
+	 * Set asset URL and cache version.
 	 *
 	 * @param string $assets_url Plugin assets URL, including trailing slash.
 	 * @param string $version    Asset cache version.
@@ -25,7 +25,7 @@ final class LoadingScreen {
 		private readonly string $version
 	) {}
 
-	/** Wire late callbacks so checkout conditionals and translations are ready. */
+	/** Defer until checkout conditionals and translations are ready. */
 	public static function register(): void {
 		add_action(
 			'wp_enqueue_scripts',
@@ -44,8 +44,7 @@ final class LoadingScreen {
 	}
 
 	/**
-	 * Normalize before the general schema converts numeric input to integers.
-	 * Invalid customization falls back to the built-in appearance.
+	 * Validate before schema integer coercion; invalid values use defaults.
 	 *
 	 * @param array<string, mixed> $settings Untrusted settings.
 	 * @return array<string, mixed>
@@ -71,7 +70,7 @@ final class LoadingScreen {
 	}
 
 	/**
-	 * Checkout-only predicate also used by the Blocks dependency registration.
+	 * Share checkout eligibility with Blocks dependency registration.
 	 *
 	 * @param array<string, mixed> $settings Saved settings.
 	 */
@@ -85,7 +84,7 @@ final class LoadingScreen {
 	}
 
 	/**
-	 * Shared five-key frontend contract. Revalidate attachments on every read.
+	 * Shared frontend config; revalidate attachments on every read.
 	 *
 	 * @param array<string, mixed> $settings Saved settings.
 	 * @return array<string, mixed>
@@ -102,13 +101,13 @@ final class LoadingScreen {
 	}
 
 	/**
-	 * Register before Blocks resolves its dependency graph, or before enqueue.
+	 * Register before Blocks resolves dependencies or assets are enqueued.
 	 *
 	 * @param array<string, mixed> $settings Saved settings.
 	 */
 	public function register_shared( array $settings ): void {
 		wp_register_script( 'spart-checkout-loading', $this->assets_url . 'js/checkout-loading.js', array(), $this->version, true );
-		// Unlike wp_localize_script, JSON keeps opacity numeric in JavaScript.
+		// JSON preserves numeric opacity; wp_localize_script would stringify it.
 		wp_add_inline_script(
 			'spart-checkout-loading',
 			'window.spartCheckoutLoadingConfig = ' . wp_json_encode( $this->config( $settings ), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) . ';',
@@ -117,7 +116,7 @@ final class LoadingScreen {
 	}
 
 	/**
-	 * Enqueue shared presentation without either checkout adapter.
+	 * Share presentation assets across checkout and preview.
 	 *
 	 * @param array<string, mixed> $settings Saved settings.
 	 */
@@ -127,7 +126,7 @@ final class LoadingScreen {
 		wp_enqueue_script( 'spart-checkout-loading' );
 	}
 
-	/** Enqueue only on the enabled checkout, never order-pay or thank-you. */
+	/** Limit assets to enabled checkout, excluding order-pay and thank-you. */
 	public function enqueue(): void {
 		$settings = (array) get_option( 'woocommerce_spart_settings', array() );
 		if ( ! self::enabled_for_checkout( $settings ) ) {
@@ -140,8 +139,7 @@ final class LoadingScreen {
 	}
 
 	/**
-	 * Preview is intentionally available with the storefront toggle off.
-	 * Saving still uses WooCommerce's existing capability/nonce protected form.
+	 * Allow preview while disabled; WooCommerce's capability/nonce checks guard saves.
 	 *
 	 * @param string $hook WordPress admin page hook suffix.
 	 */

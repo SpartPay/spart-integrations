@@ -43,7 +43,7 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		parent::tearDown();
 	}
 
-	/** Loading settings travel through the real WC POST validation and option save. */
+	/** Exercise WC POST validation and persistence without mocks. */
 	public function test_loading_screen_settings_post_round_trip(): void {
 		$_POST = array(
 			'woocommerce_spart_loading_screen_enabled'  => '1',

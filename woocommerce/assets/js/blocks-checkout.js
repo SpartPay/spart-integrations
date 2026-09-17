@@ -53,7 +53,7 @@
 			} else if ( status.isProcessing ) {
 				overlay.show();
 			}
-			// Preserve the display during AFTER_PROCESSING and the successful redirect.
+			// Keep feedback visible through AFTER_PROCESSING and redirect.
 		}, [ overlay, props.activePaymentMethod, status.isIdle, status.isProcessing, payment.hasError, payment.hasFailed ] );
 
 		wp.element.useEffect( function () {

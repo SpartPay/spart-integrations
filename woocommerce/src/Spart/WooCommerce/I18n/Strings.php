@@ -31,7 +31,6 @@ final class Strings {
 	 * @var array<string, string>
 	 */
 	public const CODES = array(
-		// Optional checkout loading screen and admin controls.
 		'SPART_SETTINGS_LOADING_TITLE'           => 'Checkout loading screen',
 		'SPART_SETTINGS_LOADING_ENABLED'         => 'Enable checkout loading screen',
 		'SPART_SETTINGS_LOADING_ENABLED_HELP'    => 'Turn off if your theme already shows loading feedback when placing an order.',

@@ -55,7 +55,7 @@
 						focus.removeAttribute( 'tabindex' );
 					}
 				};
-				// Removing tabindex while focused sends native browser focus back to body.
+				// Removing tabindex now would send focus back to body.
 				if ( document.activeElement === focus ) {
 					focus.addEventListener( 'blur', restoreTabIndex, { once: true } );
 				} else {
@@ -87,7 +87,7 @@
 		options = Object.assign( {}, config, overrides );
 		pendingFocus = false;
 		dialog = document.createElement( 'dialog' );
-		// Leave older browsers to WooCommerce rather than applying a partial input lock.
+		// Avoid a partial input lock in browsers without modal dialogs.
 		if ( typeof dialog.showModal !== 'function' ) {
 			return;
 		}

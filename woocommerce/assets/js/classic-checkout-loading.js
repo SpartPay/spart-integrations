@@ -19,7 +19,7 @@
 	}
 
 	$( function () {
-		// Gateway submit hooks run before all validation vetoes; observe the actual WC request instead.
+		// Wait for the request: gateway submit hooks precede validation vetoes.
 		$( document ).on( 'ajaxSend.spartLoading', function ( event, xhr, settings ) {
 			if ( absoluteUrl( settings.url ) !== absoluteUrl( window.wc_checkout_params.checkout_url ) ||
 				settings.type.toUpperCase() !== 'POST' ||
