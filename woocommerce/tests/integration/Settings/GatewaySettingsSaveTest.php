@@ -215,14 +215,10 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 	}
 
 	/**
-	 * The "merchant repro": fully populated POST -> save -> reload ->
-	 * every field reflects what the merchant submitted. This is the
-	 * test that would have caught the original regression.
+	 * Saving current controls preserves fixed checkout copy after reload.
 	 */
 	public function test_save_then_reload_full_round_trip(): void {
 		$_POST['woocommerce_spart_enabled']                   = '1';
-		$_POST['woocommerce_spart_title']                     = 'Split with Spart';
-		$_POST['woocommerce_spart_description']               = 'Pay in installments.';
 		$_POST['woocommerce_spart_api_key']                   = 'sk_live_NEWAPIKEY12345678';
 		$_POST['woocommerce_spart_webhook_secret']            = 'whsec_NEWSECRET12345678';
 		$_POST['woocommerce_spart_messaging_enabled_product'] = '1';
@@ -235,8 +231,8 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$reloaded = new WC_Gateway_Spart();
 
 		$this->assertSame( 'yes', $reloaded->get_option( 'enabled' ) );
-		$this->assertSame( 'Split with Spart', $reloaded->get_option( 'title' ) );
-		$this->assertSame( 'Pay in installments.', $reloaded->get_option( 'description' ) );
+		$this->assertSame( 'Share your purchase without paying upfront', $reloaded->get_title() );
+		$this->assertSame( '', $reloaded->get_description() );
 		$this->assertSame( 'sk_live_NEWAPIKEY12345678', $reloaded->get_option( 'api_key' ) );
 		$this->assertSame( 'whsec_NEWSECRET12345678', $reloaded->get_option( 'webhook_secret' ) );
 		$this->assertSame( 'yes', $reloaded->get_option( 'messaging_enabled_product' ) );
