@@ -53,7 +53,7 @@ use Spart\WooCommerce\Webhooks\WpOrderResolver;
  */
 final class Plugin {
 
-	public const VERSION = '0.5.0';
+	public const VERSION = '0.5.1';
 
 	/**
 	 * Absolute path to the plugin entry file.
@@ -177,6 +177,7 @@ final class Plugin {
 		// Renderer registrations are no-ops when their respective toggles are off.
 		Messaging\ProductPageMessaging::register();
 		Messaging\CartMessaging::register();
+		Messaging\StorefrontDialog::register();
 		Checkout\LoadingScreen::register();
 
 		\add_action( 'before_woocommerce_init', array( WooCommerceCompat::class, 'declare' ) );

@@ -27,6 +27,26 @@ use Spart\WooCommerce\Messaging\MessagingEditorPayload;
  */
 final class MessagingEditorPayloadTest extends TestCase {
 
+	protected function setUp(): void {
+		parent::setUp();
+		\Brain\Monkey\setUp();
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		\Brain\Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+	}
+
+	protected function tearDown(): void {
+		\Brain\Monkey\tearDown();
+		parent::tearDown();
+	}
+
+	public function test_editor_payload_includes_official_artwork_urls(): void {
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		\Brain\Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+		$payload = MessagingEditorPayload::build();
+		$this->assertSame( 'https://shop.example/assets/images/spart-logo.svg', $payload['logoUrl'] ?? null );
+		$this->assertSame( 'https://shop.example/assets/images/spart-symbol.svg', $payload['symbolUrl'] ?? null );
+	}
+
 	public function test_build_returns_codes_and_previews_arrays(): void {
 		$payload = MessagingEditorPayload::build();
 

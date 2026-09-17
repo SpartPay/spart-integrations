@@ -42,8 +42,8 @@ final class ProductMessagingDisplayTest extends WC_Spart_IntegrationTestCase {
 		}
 
 		$this->assertStringContainsString( 'spart-messaging--product', $output );
-		$this->assertStringContainsString( 'Pay in 3 interest-free installments with Spart.', $output );
-		$this->assertStringContainsString( 'Split the payment with your friends!', $output );
+		$this->assertStringContainsString( 'Share and split the payment.', $output );
+		$this->assertStringContainsString( 'No upfront payment.', $output );
 	}
 
 	public function test_messaging_does_not_render_when_toggle_is_off(): void {

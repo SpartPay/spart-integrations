@@ -126,8 +126,8 @@ final class SpartBlocksSupportTest extends TestCase {
 				Mockery::on(
 					static function ( $arg ): bool {
 						return is_array( $arg )
-							&& ( $arg['title'] ?? null ) === 'T'
-							&& ( $arg['description'] ?? null ) === 'D'
+							&& ( $arg['title'] ?? null ) === 'SPART_CHECKOUT_TITLE'
+							&& ( $arg['description'] ?? null ) === ''
 							&& ( $arg['enabled'] ?? null ) === 'yes';
 					}
 				),
@@ -160,8 +160,8 @@ final class SpartBlocksSupportTest extends TestCase {
 					static function ( $arg ): bool {
 						return is_array( $arg )
 							&& ( $arg['enabled'] ?? null ) === 'yes'
-							&& ( $arg['title'] ?? null ) === 'Pay with Spart'
-							&& ( $arg['description'] ?? null ) === 'Split the payment with your friends!';
+							&& ( $arg['title'] ?? null ) === 'SPART_CHECKOUT_TITLE'
+							&& ( $arg['description'] ?? null ) === '';
 					}
 				),
 				self::ASSETS_URL
@@ -180,7 +180,13 @@ final class SpartBlocksSupportTest extends TestCase {
 		$builder = Mockery::mock( PaymentMethodDataBuilder::class );
 		$builder->shouldReceive( 'build' )
 			->once()
-			->with( array(), self::ASSETS_URL )
+			->with(
+				array(
+					'title'       => 'SPART_CHECKOUT_TITLE',
+					'description' => '',
+				),
+				self::ASSETS_URL
+			)
 			->andReturn( array( 'fallback' => true ) );
 
 		$this->assertSame(

@@ -93,41 +93,13 @@ final class MessagingBlocksRegistrar {
 	 * @return void
 	 */
 	public static function enqueue_front_styles(): void {
-		if ( ! self::is_any_enabled() ) {
+		if ( function_exists( 'is_checkout' ) && is_checkout() ) {
+			wp_enqueue_style( Constants::STYLE_HANDLE_MESSAGING, plugins_url( 'assets/css/spart.css', Plugin::plugin_file() ), array(), Plugin::VERSION );
 			return;
 		}
-
-		if ( ! self::is_messaging_page() ) {
-			return;
+		if ( ( function_exists( 'is_product' ) && is_product() && ProductPageMessaging::is_enabled() )
+			|| ( function_exists( 'is_cart' ) && is_cart() && CartMessaging::is_enabled() ) ) {
+			StorefrontDialog::enqueue();
 		}
-
-		wp_enqueue_style(
-			Constants::STYLE_HANDLE_MESSAGING,
-			plugins_url( 'assets/css/spart.css', Plugin::plugin_file() ),
-			array(),
-			Plugin::VERSION
-		);
-	}
-
-	/**
-	 * Whether at least one messaging toggle is enabled in settings.
-	 *
-	 * @return bool
-	 */
-	private static function is_any_enabled(): bool {
-		$options = (array) get_option( Constants::OPTION_KEY, array() );
-
-		return 'yes' === ( $options[ Constants::TOGGLE_MESSAGING_PRODUCT ] ?? 'no' )
-			|| 'yes' === ( $options[ Constants::TOGGLE_MESSAGING_CART ] ?? 'no' );
-	}
-
-	/**
-	 * Whether the current request is for a product or cart page.
-	 *
-	 * @return bool
-	 */
-	private static function is_messaging_page(): bool {
-		return ( function_exists( 'is_product' ) && is_product() )
-			|| ( function_exists( 'is_cart' ) && is_cart() );
 	}
 }

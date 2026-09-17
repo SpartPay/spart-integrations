@@ -1,0 +1,81 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Spart WooCommerce 0.5.0\n"
+"PO-Revision-Date: 2026-09-17 21:00+0000\n"
+"Last-Translator: SPART!\n"
+"Language-Team: Italian\n"
+"Language: it_IT\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_1"
+msgstr "Condividi e dividi il pagamento."
+
+msgid "SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_2"
+msgstr "Nessun anticipo."
+
+msgid "SPART_MSG_CART_BEFORE_TOTALS_LINE_1"
+msgstr "Condividi la tua spesa."
+
+msgid "SPART_CHECKOUT_TITLE"
+msgstr "Condividi la tua spesa senza anticipare"
+
+msgid "SPART_DIALOG_HELP"
+msgstr "Informazioni su SPART!"
+
+msgid "SPART_DIALOG_CLOSE"
+msgstr "Chiudi le informazioni su SPART!"
+
+msgid "SPART_DIALOG_TITLE_1"
+msgstr "Acquista insieme."
+
+msgid "SPART_DIALOG_TITLE_2"
+msgstr "Ognuno paga la sua parte."
+
+msgid "SPART_DIALOG_INTRO"
+msgstr "Con SPART! condividi il prodotto con amici, familiari o colleghi e ognuno paga solo la propria quota."
+
+msgid "SPART_DIALOG_HOW"
+msgstr "Come funziona?"
+
+msgid "SPART_DIALOG_INVITE"
+msgstr "Invita"
+
+msgid "SPART_DIALOG_INVITE_BODY"
+msgstr "Condividi l'ordine con chi vuoi, ti serve solo la sua email."
+
+msgid "SPART_DIALOG_PAY"
+msgstr "Ognuno paga la sua parte"
+
+msgid "SPART_DIALOG_PAY_BODY"
+msgstr "Ogni partecipante riceverà una mail con il link diretto per pagare la propria quota."
+
+msgid "SPART_DIALOG_UNLOCK"
+msgstr "Ordine sbloccato"
+
+#. %s: The emphasized assurance that the customer's card will not be charged.
+msgid "SPART_DIALOG_UNLOCK_BODY"
+msgstr "Appena tutti avranno pagato, l'ordine sarà sbloccato. Se non pagano tutti, %s."
+
+msgid "SPART_DIALOG_NO_CHARGE"
+msgstr "non ti verrà addebitato nulla sulla tua carta"
+
+msgid "SPART_DIALOG_WHY"
+msgstr "Perché usare SPART!?"
+
+msgid "SPART_DIALOG_NO_UPFRONT"
+msgstr "Nessun anticipo"
+
+msgid "SPART_DIALOG_SECURE"
+msgstr "Pagamenti sicuri"
+
+msgid "SPART_DIALOG_NO_REPAYMENTS"
+msgstr "Nessun rimborso tra amici"
+
+msgid "SPART_DIALOG_ONE_ORDER"
+msgstr "Un solo ordine, spedizione unica"
+
+msgid "SPART_DIALOG_FOOTER"
+msgstr "Il negozio riceve un unico ordine mentre ogni partecipante completa il proprio pagamento separatamente tramite SPART!"

@@ -21,6 +21,22 @@ use Spart\WooCommerce\Settings\Schema;
  */
 final class WC_Gateway_SpartTest extends TestCase {
 
+	public function test_gateway_title_is_plain_for_order_storage_and_checkout_has_only_wordmark(): void {
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		Monkey\Functions\when( 'esc_html__' )->returnArg();
+		Monkey\Functions\when( 'esc_url' )->returnArg();
+		Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+		$gateway = new WC_Gateway_Spart();
+		$this->assertTrue( method_exists( $gateway, 'get_title' ), 'Gateway must provide the storefront checkout title.' );
+		$this->assertSame( 'SPART_CHECKOUT_TITLE', $gateway->get_title() );
+		$this->assertStringContainsString( 'spart-logo.svg', $gateway->get_icon() );
+		$gateway->description = 'Old merchant description';
+		ob_start();
+		$gateway->payment_fields();
+		$this->assertSame( '', ob_get_clean() );
+		$this->assertSame( '', $gateway->get_description() );
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();

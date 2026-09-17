@@ -5,10 +5,47 @@ namespace Spart\WooCommerce\Tests\Unit\I18n;
 use Brain\Monkey;
 use Brain\Monkey\Functions;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\PreserveGlobalState;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use Spart\WooCommerce\I18n\GettextFilter;
 use Spart\WooCommerce\I18n\Strings;
 
 final class GettextFilterTest extends TestCase {
+
+	#[RunInSeparateProcess]
+	#[PreserveGlobalState( false )]
+	public function test_bundled_locale_translation_is_not_logged_but_changed_overrides_are(): void {
+		$locale = 'it_IT';
+		Functions\when( 'determine_locale' )->alias(
+			static function () use ( &$locale ) {
+				return $locale;
+			}
+		);
+		$reader  = \Mockery::mock( 'alias:WP_Translation_File' );
+		$catalog = \Mockery::mock();
+		$reader->shouldReceive( 'create' )->once()
+			->with( dirname( __DIR__, 3 ) . '/languages/spart-woocommerce-it_IT.mo' )->andReturn( $catalog );
+		$reader->shouldReceive( 'create' )->once()
+			->with( dirname( __DIR__, 3 ) . '/languages/spart-woocommerce-en_US.mo' )->andReturn( false );
+		$catalog->shouldReceive( 'translate' )->with( 'SPART_CHECKOUT_TITLE' )->andReturn( 'Condividi la tua spesa senza anticipare' );
+		$catalog->shouldReceive( 'translate' )->with( 'SPART_DIALOG_HELP' )->andReturn( 'Informazioni su SPART!' );
+
+		for ( $index = 0; $index < 2; ++$index ) {
+			$this->assertSame( 'Condividi la tua spesa senza anticipare', GettextFilter::filter( 'Condividi la tua spesa senza anticipare', 'SPART_CHECKOUT_TITLE', Strings::TEXT_DOMAIN ) );
+		}
+		$this->assertSame( 'Informazioni su SPART!', GettextFilter::filter( 'Informazioni su SPART!', 'SPART_DIALOG_HELP', Strings::TEXT_DOMAIN ) );
+		$this->assertSame( array(), $this->logger_spy->calls );
+
+		for ( $index = 0; $index < 2; ++$index ) {
+			$this->assertSame( 'Titolo personalizzato', GettextFilter::filter( 'Titolo personalizzato', 'SPART_CHECKOUT_TITLE', Strings::TEXT_DOMAIN ) );
+		}
+		$this->assertCount( 1, $this->logger_spy->calls );
+		$this->assertSame( 'spart.i18n.unexpected_translation', $this->logger_spy->calls[0]['message'] );
+
+		$locale = 'en_US';
+		$this->assertSame( 'Informazioni su SPART!', GettextFilter::filter( 'Informazioni su SPART!', 'SPART_DIALOG_HELP', Strings::TEXT_DOMAIN ) );
+		$this->assertCount( 2, $this->logger_spy->calls, 'A different locale must not inherit the Italian diagnostic exemption.' );
+	}
 
 	/** @var object{calls: list<array{level: string, message: string, context: array<string, mixed>}>} */
 	private object $logger_spy;

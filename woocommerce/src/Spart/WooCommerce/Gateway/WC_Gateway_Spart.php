@@ -32,6 +32,24 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 
 	public const GATEWAY_ID = 'spart';
 
+	/** Keep markup out of the persisted payment title. */
+	public function get_title(): string {
+		return __( 'SPART_CHECKOUT_TITLE', 'spart-woocommerce' );
+	}
+
+	/** Use WooCommerce's native icon slot. */
+	public function get_icon(): string {
+		return '<img class="spart-checkout-logo" src="' . esc_url( plugins_url( 'assets/images/spart-logo.svg', Plugin::plugin_file() ) ) . '" alt="SPART!" width="74" height="15">';
+	}
+
+	/** Keep checkout label-only. */
+	public function get_description(): string {
+		return '';
+	}
+
+	/** Leave the payment selector to WooCommerce. */
+	public function payment_fields(): void {}
+
 	/**
 	 * Initialises gateway properties and hooks.
 	 */

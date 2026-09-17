@@ -116,7 +116,9 @@ final class SpartBlocksSupport extends AbstractPaymentMethodType {
 	 * @return array<string, mixed>
 	 */
 	public function get_payment_method_data(): array {
-		$settings = is_array( $this->settings ) ? $this->settings : array();
+		$settings                = is_array( $this->settings ) ? $this->settings : array();
+		$settings['title']       = __( 'SPART_CHECKOUT_TITLE', 'spart-woocommerce' );
+		$settings['description'] = '';
 		return $this->builder->build( $settings, $this->assets_url );
 	}
 }

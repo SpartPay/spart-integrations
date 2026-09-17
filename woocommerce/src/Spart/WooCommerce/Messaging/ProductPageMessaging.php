@@ -63,10 +63,11 @@ final class ProductPageMessaging {
 	 * @return string HTML markup.
 	 */
 	public static function render(): string {
-		if ( ! self::is_enabled() ) {
+		if ( ! self::is_enabled() || ( function_exists( 'is_checkout' ) && is_checkout() ) ) {
 			return '';
 		}
 
+		StorefrontDialog::enqueue();
 		$line1 = esc_html__( Constants::MSG_CODE_PRODUCT_LINE_1, Strings::TEXT_DOMAIN ); // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 		$line2 = esc_html__( Constants::MSG_CODE_PRODUCT_LINE_2, Strings::TEXT_DOMAIN ); // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 

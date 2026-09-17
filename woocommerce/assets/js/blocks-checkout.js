@@ -12,30 +12,29 @@
 		? wc.wcSettings.getSetting( 'spart_data', {} )
 		: {};
 
-	var labelText = decodeEntities( settings.title || __( 'Pay with Spart', 'spart-woocommerce' ) );
-	var descText  = decodeEntities( settings.description || '' );
+	var fallbackLabel = __( 'SPART_CHECKOUT_TITLE', 'spart-woocommerce' );
+	var labelText = decodeEntities( settings.title || ( fallbackLabel === 'SPART_CHECKOUT_TITLE' ? 'Share your purchase without paying upfront' : fallbackLabel ) );
 	var logoUrl   = settings.logoUrl || '';
 
 	var Label = function () {
 		return h(
 			'span',
 			{ className: 'spart-blocks-label' },
+			h( 'strong', { className: 'spart-checkout-title' }, labelText ),
 			logoUrl
 				? h( 'img', {
 				src:       logoUrl,
-				alt:       '',
-				className: 'spart-logo',
-				width:     60,
-				height:    24,
+				alt:       'SPART!',
+				className: 'spart-checkout-logo',
+				width:     74,
+				height:    15,
 			} )
-				: null,
-			' ',
-			labelText
+				: null
 		);
 	};
 
 	var Content = function () {
-		return h( 'p', { className: 'spart-blocks-description' }, descText );
+		return null;
 	};
 
 	var CheckoutContent = function ( props ) {

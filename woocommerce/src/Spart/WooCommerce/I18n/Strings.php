@@ -55,11 +55,31 @@ final class Strings {
 		'SPART_SETTINGS_MESSAGING_CART_LABEL'    => 'Show Spart messaging on the cart page',
 
 		// Product page messaging copy.
-		'SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_1'  => 'Pay in 3 interest-free installments with Spart.',
-		'SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_2'  => 'Split the payment with your friends!',
+		'SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_1'  => 'Share and split the payment.',
+		'SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_2'  => 'No upfront payment.',
 
 		// Cart page messaging copy.
-		'SPART_MSG_CART_BEFORE_TOTALS_LINE_1'    => 'Spart it: pay in installments with friends.',
+		'SPART_MSG_CART_BEFORE_TOTALS_LINE_1'    => 'Share your purchase.',
 		'SPART_MSG_CART_BEFORE_TOTALS_LINE_2'    => 'Choose Spart at checkout to split this order.',
+		'SPART_CHECKOUT_TITLE'                   => 'Share your purchase without paying upfront',
+		'SPART_DIALOG_HELP'                      => 'About SPART!',
+		'SPART_DIALOG_CLOSE'                     => 'Close SPART! information',
+		'SPART_DIALOG_TITLE_1'                   => 'Buy together.',
+		'SPART_DIALOG_TITLE_2'                   => 'Everyone pays their share.',
+		'SPART_DIALOG_INTRO'                     => 'With SPART! you share the product with friends, family or colleagues and everyone pays only their own share.',
+		'SPART_DIALOG_HOW'                       => 'How does it work?',
+		'SPART_DIALOG_INVITE'                    => 'Invite',
+		'SPART_DIALOG_INVITE_BODY'               => 'Share the order with anyone you want, all you need is their email.',
+		'SPART_DIALOG_PAY'                       => 'Everyone pays their share',
+		'SPART_DIALOG_PAY_BODY'                  => 'Each participant will receive an email with a direct link to pay their share.',
+		'SPART_DIALOG_UNLOCK'                    => 'Order unlocked',
+		'SPART_DIALOG_UNLOCK_BODY'               => 'Once everyone has paid, the order will be unlocked. If not everyone pays, %s.',
+		'SPART_DIALOG_NO_CHARGE'                 => 'nothing will be charged to your card',
+		'SPART_DIALOG_WHY'                       => 'Why use SPART!?',
+		'SPART_DIALOG_NO_UPFRONT'                => 'No upfront payment',
+		'SPART_DIALOG_SECURE'                    => 'Secure payments',
+		'SPART_DIALOG_NO_REPAYMENTS'             => 'No repayments between friends',
+		'SPART_DIALOG_ONE_ORDER'                 => 'One order, one shipment',
+		'SPART_DIALOG_FOOTER'                    => 'The store receives a single order while each participant completes their payment separately through SPART!',
 	);
 }
