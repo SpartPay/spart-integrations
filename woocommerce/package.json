@@ -4,12 +4,17 @@
     "version": "0.1.0",
     "description": "Integration test harness for the Spart WooCommerce plugin.",
     "scripts": {
+        "test:js": "node --test tests/js/*.test.cjs",
         "env:start": "wp-env start",
         "env:stop": "wp-env stop",
         "env:clean": "wp-env clean all",
         "test:integration": "wp-env run tests-cli --env-cwd=wp-content/plugins/spart-woocommerce vendor/bin/phpunit -c /var/www/html/wp-content/plugins/spart-woocommerce/phpunit-integration.xml.dist"
     },
     "devDependencies": {
-        "@wordpress/env": "^11.6.0"
+        "@wordpress/env": "^11.6.0",
+        "jquery": "^3.7.1",
+        "jsdom": "^26.1.0",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1"
     }
 }

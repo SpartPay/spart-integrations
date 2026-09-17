@@ -177,6 +177,7 @@ final class Plugin {
 		// Renderer registrations are no-ops when their respective toggles are off.
 		Messaging\ProductPageMessaging::register();
 		Messaging\CartMessaging::register();
+		Checkout\LoadingScreen::register();
 
 		\add_action( 'before_woocommerce_init', array( WooCommerceCompat::class, 'declare' ) );
 		\add_action( 'plugins_loaded', array( self::class, 'on_plugins_loaded' ) );

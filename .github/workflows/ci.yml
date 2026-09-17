@@ -156,3 +156,5 @@ jobs:
       - run: npm ci --no-audit --no-fund --no-progress
       - name: Build blocks (if a build script exists)
         run: npm run build --if-present
+      - name: Test checkout loading lifecycle
+        run: npm run test:js

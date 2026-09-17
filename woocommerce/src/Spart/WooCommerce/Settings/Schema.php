@@ -244,6 +244,46 @@ final class Schema {
 			)
 		);
 
+		$fields[] = Field::title( 'loading_screen', __( 'SPART_SETTINGS_LOADING_TITLE', 'spart-woocommerce' ) );
+		$fields[] = Field::checkbox(
+			'loading_screen_enabled',
+			__( 'SPART_SETTINGS_LOADING_ENABLED', 'spart-woocommerce' ),
+			'yes',
+			array(
+				'description' => __( 'SPART_SETTINGS_LOADING_ENABLED_HELP', 'spart-woocommerce' ),
+			)
+		);
+		$fields[] = Field::text(
+			'loading_screen_backdrop_color',
+			__( 'SPART_SETTINGS_LOADING_COLOR', 'spart-woocommerce' ),
+			'#192a23',
+			array(
+				'custom_attributes' => array(
+					'pattern'   => '#[0-9a-fA-F]{6}',
+					'maxlength' => '7',
+				),
+			)
+		);
+		$fields[] = Field::number(
+			'loading_screen_backdrop_opacity',
+			__( 'SPART_SETTINGS_LOADING_OPACITY', 'spart-woocommerce' ),
+			55,
+			0,
+			array(
+				'custom_attributes' => array( 'max' => 100 ),
+			)
+		);
+		$fields[] = Field::number(
+			'loading_screen_image_id',
+			__( 'SPART_SETTINGS_LOADING_IMAGE', 'spart-woocommerce' ),
+			0,
+			0,
+			array(
+				'description'       => __( 'SPART_SETTINGS_LOADING_IMAGE_HELP', 'spart-woocommerce' ),
+				'custom_attributes' => array( 'readonly' => 'readonly' ),
+			)
+		);
+
 		// Must be LAST: WC's 'title' field type emits </table><h3>...</h3><table>,
 		// which would visually swallow any field rendered after it under the
 		// "API endpoint" heading.
