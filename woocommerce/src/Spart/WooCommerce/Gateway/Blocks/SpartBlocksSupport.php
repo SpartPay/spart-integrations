@@ -13,6 +13,7 @@ declare(strict_types=1);
 namespace Spart\WooCommerce\Gateway\Blocks;
 
 use Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType;
+use Spart\WooCommerce\Checkout\LoadingScreen;
 use Spart\WooCommerce\Gateway\WC_Gateway_Spart;
 use Spart\WooCommerce\Settings\Schema;
 
@@ -88,10 +89,16 @@ final class SpartBlocksSupport extends AbstractPaymentMethodType {
 	 * @return list<string>
 	 */
 	public function get_payment_method_script_handles(): array {
+		$deps     = array( 'wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-html-entities', 'wp-i18n' );
+		$settings = is_array( $this->settings ) ? $this->settings : array();
+		if ( LoadingScreen::enabled_for_checkout( $settings ) ) {
+			( new LoadingScreen( $this->assets_url, $this->version ) )->register_shared( $settings );
+			$deps[] = 'spart-checkout-loading';
+		}
 		\wp_register_script(
 			'spart-blocks-checkout',
 			$this->assets_url . 'js/blocks-checkout.js',
-			array( 'wc-blocks-registry', 'wc-settings', 'wp-element', 'wp-html-entities', 'wp-i18n' ),
+			$deps,
 			$this->version,
 			true
 		);

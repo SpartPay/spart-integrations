@@ -19,10 +19,10 @@ final class SchemaTest extends TestCase {
 		parent::tearDown();
 	}
 
-	public function test_field_count_is_fourteen(): void {
+	public function test_field_count_includes_loading_settings(): void {
 		$fields = Schema::fields();
 
-		$this->assertCount( 14, $fields );
+		$this->assertCount( 19, $fields );
 	}
 
 	public function test_field_ids_match_expected_set(): void {
@@ -43,6 +43,11 @@ final class SchemaTest extends TestCase {
 				'messaging_enabled_cart',
 				'environment',
 				'debug_logging',
+				'loading_screen',
+				'loading_screen_enabled',
+				'loading_screen_backdrop_color',
+				'loading_screen_backdrop_opacity',
+				'loading_screen_image_id',
 				'debug_api_endpoint',
 			),
 			$ids
@@ -155,7 +160,7 @@ final class SchemaTest extends TestCase {
 		// rebuilt from scratch rather than the memoised reference.
 		Schema::reset_for_tests();
 		$rebuilt = Schema::fields();
-		$this->assertCount( 14, $rebuilt );
+		$this->assertCount( 19, $rebuilt );
 		$this->assertContains( Schema::DEBUG_API_ENDPOINT_FIELD, array_map( static fn ( Field $f ) => $f->id(), $rebuilt ) );
 	}
 

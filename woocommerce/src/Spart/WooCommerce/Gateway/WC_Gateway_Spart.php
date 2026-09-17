@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Spart\WooCommerce\Gateway;
 
+use Spart\WooCommerce\Checkout\LoadingScreen;
 use Spart\WooCommerce\Eligibility\EligibilityChecker;
 use Spart\WooCommerce\Http\WpHttpClientFactory;
 use Spart\WooCommerce\Logging\ElapsedTime;
@@ -171,6 +172,20 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		);
 	}
 
+
+	/**
+	 * Reject malformed loading inputs before WooCommerce's string-only validator.
+	 *
+	 * @param string $key   Field key.
+	 * @param mixed  $value Raw POST value.
+	 * @return string
+	 */
+	public function validate_text_field( $key, $value ): string {
+		if ( in_array( $key, array( 'loading_screen_backdrop_color', 'loading_screen_backdrop_opacity', 'loading_screen_image_id' ), true ) ) {
+			return (string) LoadingScreen::sanitize( array( $key => $value ) )[ $key ];
+		}
+		return parent::validate_text_field( $key, $value );
+	}
 
 	/**
 	 * Validate (and conditionally preserve) a password-type settings field.
@@ -357,6 +372,7 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 	 * @return array<string,mixed>
 	 */
 	public function enforce_schema_invariants( array $settings ): array {
+		$settings                = array_replace( $settings, LoadingScreen::sanitize( $settings ) );
 		$settings                = Schema::sanitize( $settings );
 		$settings                = $this->resolve_checkout_window( $settings );
 		$settings['webhook_url'] = $this->webhook_url();

@@ -38,10 +38,49 @@
 		return h( 'p', { className: 'spart-blocks-description' }, descText );
 	};
 
+	var CheckoutContent = function ( props ) {
+		var overlay = window.spartCheckoutLoading;
+		var status = props.checkoutStatus || {};
+		var payment = props.paymentStatus || {};
+		var onCheckoutFail = props.eventRegistration && props.eventRegistration.onCheckoutFail;
+
+		wp.element.useEffect( function () {
+			if ( ! overlay ) {
+				return;
+			}
+			if ( props.activePaymentMethod !== 'spart' || status.isIdle || payment.hasError || payment.hasFailed ) {
+				overlay.hide();
+			} else if ( status.isProcessing ) {
+				overlay.show();
+			}
+			// Keep feedback visible through AFTER_PROCESSING and redirect.
+		}, [ overlay, props.activePaymentMethod, status.isIdle, status.isProcessing, payment.hasError, payment.hasFailed ] );
+
+		wp.element.useEffect( function () {
+			if ( ! overlay || ! onCheckoutFail ) {
+				return;
+			}
+			return onCheckoutFail( function () {
+				overlay.hide();
+				return true;
+			} );
+		}, [ overlay, onCheckoutFail ] );
+
+		wp.element.useEffect( function () {
+			return function () {
+				if ( overlay ) {
+					overlay.hide();
+				}
+			};
+		}, [ overlay ] );
+
+		return h( Content );
+	};
+
 	registerPaymentMethod( {
 		name:           'spart',
 		label:          h( Label ),
-		content:        h( Content ),
+		content:        h( CheckoutContent ),
 		edit:           h( Content ),
 		canMakePayment: function () { return true; },
 		ariaLabel:      labelText,

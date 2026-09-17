@@ -43,6 +43,58 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		parent::tearDown();
 	}
 
+	/** Exercise WC POST validation and persistence without mocks. */
+	public function test_loading_screen_settings_post_round_trip(): void {
+		$_POST = array(
+			'woocommerce_spart_loading_screen_enabled'  => '1',
+			'woocommerce_spart_loading_screen_backdrop_color' => '#ABC123',
+			'woocommerce_spart_loading_screen_backdrop_opacity' => '0',
+			'woocommerce_spart_loading_screen_image_id' => '0',
+		);
+		( new WC_Gateway_Spart() )->process_admin_options();
+		$saved = get_option( $this->option_key );
+		$this->assertSame( 'yes', $saved['loading_screen_enabled'] );
+		$this->assertSame( '#abc123', $saved['loading_screen_backdrop_color'] );
+		$this->assertSame( 0, $saved['loading_screen_backdrop_opacity'] );
+		$this->assertSame( 0, $saved['loading_screen_image_id'] );
+		$this->assertArrayNotHasKey( 'loading_screen', $saved );
+	}
+
+	public function test_loading_screen_post_rejects_invalid_values_and_unchecked_toggle(): void {
+		update_option( $this->option_key, array( 'loading_screen_enabled' => 'yes' ) );
+		$svg = wp_insert_attachment( array( 'post_mime_type' => 'image/svg+xml' ) );
+		$this->assertIsInt( $svg );
+		$this->assertGreaterThan( 0, $svg );
+		try {
+			$_POST = array(
+				'woocommerce_spart_loading_screen_backdrop_color' => 'url(javascript:alert(1))',
+				'woocommerce_spart_loading_screen_backdrop_opacity' => '101',
+				'woocommerce_spart_loading_screen_image_id' => (string) $svg,
+			);
+			( new WC_Gateway_Spart() )->process_admin_options();
+			$saved = get_option( $this->option_key );
+			$this->assertSame( 'no', $saved['loading_screen_enabled'] );
+			$this->assertSame( '#192a23', $saved['loading_screen_backdrop_color'] );
+			$this->assertSame( 55, $saved['loading_screen_backdrop_opacity'] );
+			$this->assertSame( 0, $saved['loading_screen_image_id'] );
+		} finally {
+			wp_delete_attachment( $svg, true );
+		}
+	}
+
+	public function test_loading_screen_post_rejects_arrays_before_wc_text_validation(): void {
+		$_POST = array(
+			'woocommerce_spart_loading_screen_backdrop_color' => array( '#ffffff' ),
+			'woocommerce_spart_loading_screen_backdrop_opacity' => array( '50' ),
+			'woocommerce_spart_loading_screen_image_id' => array( '12' ),
+		);
+		( new WC_Gateway_Spart() )->process_admin_options();
+		$saved = get_option( $this->option_key );
+		$this->assertSame( '#192a23', $saved['loading_screen_backdrop_color'] );
+		$this->assertSame( 55, $saved['loading_screen_backdrop_opacity'] );
+		$this->assertSame( 0, $saved['loading_screen_image_id'] );
+	}
+
 	/**
 	 * The basic regression repro: edit description + title via the
 	 * admin form, click save, expect the option to actually contain

@@ -2,6 +2,32 @@
 
 Spart payment gateway plugin for WooCommerce.
 
+## Optional checkout loading screen
+
+In **WooCommerce → Settings → Payments → Spart**, the **Checkout loading screen**
+section is on by default on fresh installs and upgrades without a saved preference.
+An explicitly saved off setting stays off. The shared loading screen appears on
+classic and Blocks checkout while Spart prepares payment.
+The gateway must also be enabled. Cart, order-pay and order-received pages do not
+load these assets; turning the toggle off preserves the existing checkout behavior.
+
+Customize the six-digit hex backdrop color (default `#192a23`), integer opacity
+(`0`–`100`, default `55`), and Media Library image. Raster images, including animated
+GIF/WebP, are supported; SVG, nonimages and invalid attachments are rejected.
+**Clear image** restores the built-in indicator (attachment ID `0`). Invalid color
+or opacity values fall back to their defaults. Reduced-motion customers always
+see the static built-in indicator instead of a custom image.
+
+**Preview loading screen** uses unsaved values, even with the toggle off; close it
+with **Close preview** or Escape. Saving uses WooCommerce's normal settings form.
+
+Developer contract: `spart-checkout-loading` publishes `spartCheckoutLoadingConfig`
+with `backdropColor`, `backdropOpacity`, `imageUrl`, `title` and `description`.
+PHP translates display copy before localization. The classic adapter depends on
+`jquery`, `wc-checkout` and the shared handle; Blocks adds only the shared dependency
+when enabled. The admin adapter calls `spartCheckoutLoading.show()` with preview
+and appearance overrides plus a translated `closeLabel`.
+
 ## Local development
 
 This plugin depends on the PHP SDK (`spart/sdk`), which lives in the **public
