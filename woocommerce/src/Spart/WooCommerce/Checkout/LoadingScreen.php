@@ -133,6 +133,11 @@ final class LoadingScreen {
 			return;
 		}
 		$this->enqueue_shared( $settings );
+		// Blocks may register at init, before checkout conditionals are available.
+		$blocks_script = wp_scripts()->registered['spart-blocks-checkout'] ?? null;
+		if ( $blocks_script && ! in_array( 'spart-checkout-loading', $blocks_script->deps, true ) ) {
+			$blocks_script->deps[] = 'spart-checkout-loading';
+		}
 		if ( ! has_block( 'woocommerce/checkout' ) ) {
 			wp_enqueue_script( 'spart-classic-checkout-loading', $this->assets_url . 'js/classic-checkout-loading.js', array( 'jquery', 'wc-checkout', 'spart-checkout-loading' ), $this->version, true );
 		}

@@ -44,6 +44,7 @@ final class LoadingScreenTest extends TestCase {
 		Functions\when( 'is_wc_endpoint_url' )->justReturn( false );
 		Functions\when( 'is_admin' )->justReturn( false );
 		Functions\when( 'has_block' )->justReturn( false );
+		Functions\when( 'wp_scripts' )->justReturn( (object) array( 'registered' => array() ) );
 		// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- Implement the WP JSON boundary without loading WordPress.
 		Functions\when( 'wp_json_encode' )->alias( static fn ( $value, $flags = 0 ) => json_encode( $value, $flags ) );
 		Functions\when( 'wp_localize_script' )->alias(
@@ -328,6 +329,39 @@ final class LoadingScreenTest extends TestCase {
 				false,
 			),
 		);
+	}
+
+	/** @dataProvider blocks_preferences */
+	public function test_early_blocks_registration_gets_checkout_dependency_when_enqueued( array $settings, bool $expected ): void {
+		Functions\when( 'get_option' )->justReturn( $settings );
+		Functions\when( 'is_checkout' )->justReturn( false );
+		Functions\when( 'has_block' )->justReturn( true );
+		$scripts = (object) array( 'registered' => array() );
+		Functions\when( 'wp_scripts' )->justReturn( $scripts );
+		Functions\when( 'wp_register_script' )->alias(
+			static function ( $handle, $url, $deps ) use ( $scripts ) {
+				// WordPress keeps the first registration, including its dependencies.
+				$scripts->registered[ $handle ] ??= (object) array( 'deps' => $deps );
+			}
+		);
+		Functions\when( 'wp_set_script_translations' )->justReturn( true );
+		Functions\when( 'wp_enqueue_script' )->justReturn( null );
+		Functions\when( 'wp_enqueue_style' )->justReturn( null );
+		$support = new SpartBlocksSupport( new PaymentMethodDataBuilder(), 'https://shop.test/assets/', 'test-version' );
+		$support->initialize();
+		$support->get_payment_method_script_handles();
+		$base_deps = $scripts->registered['spart-blocks-checkout']->deps;
+		$this->assertNotContains( 'spart-checkout-loading', $base_deps );
+
+		Functions\when( 'is_checkout' )->justReturn( true );
+		$support->get_payment_method_script_handles();
+		$this->screen()->enqueue();
+		$this->screen()->enqueue();
+		$this->assertSame(
+			$expected ? array_merge( $base_deps, array( 'spart-checkout-loading' ) ) : $base_deps,
+			$scripts->registered['spart-blocks-checkout']->deps
+		);
+		$this->assertSame( $expected, isset( $scripts->registered['spart-checkout-loading'] ) );
 	}
 
 	public function test_custom_config_resolves_attachment_url_and_revalidates_stored_values(): void {
