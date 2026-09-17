@@ -12,7 +12,7 @@ test( 'editor previews match product and cart hierarchy without a nonfunctional 
 	const registrations = {};
 	dom.window.wp = { element: React, blocks: { registerBlockType( name, config ) { registrations[ name ] = config; } } };
 	dom.window.spartMessaging = {
-		previews: { productLine1: 'Share and split the payment.', productLine2: 'No upfront payment.', cartLine1: 'Share your purchase.', cartLine2: 'Old subtitle' },
+		previews: { productLine1: 'Share and split the payment.', productLine2: 'No upfront payment.', cartLine1: 'Share your purchase.' },
 		logoUrl: 'https://shop.example/spart-logo.svg', symbolUrl: 'https://shop.example/spart-symbol.svg',
 	};
 	dom.window.eval( fs.readFileSync( path.join( __dirname, '../../assets/js/messaging-blocks.js' ), 'utf8' ) );
@@ -23,5 +23,6 @@ test( 'editor previews match product and cart hierarchy without a nonfunctional 
 	assert.match( product, /spart-symbol.svg/ );
 	assert.match( cart, /<strong>Share your purchase\.<\/strong>/ );
 	assert.match( cart, /spart-logo.svg/ );
-	assert.doesNotMatch( cart, /Old subtitle|<button/ );
+	assert.equal( ( cart.match( /<p /g ) || [] ).length, 1 );
+	assert.doesNotMatch( cart, /<button/ );
 } );

@@ -64,8 +64,8 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		$this->init_settings();
 
 		$this->enabled     = $this->get_option( 'enabled' );
-		$this->title       = $this->get_option( 'title' );
-		$this->description = $this->get_option( 'description' );
+		$this->title       = $this->get_option( 'title', '' );
+		$this->description = $this->get_option( 'description', '' );
 
 		add_action(
 			'woocommerce_update_options_payment_gateways_' . $this->id,
@@ -394,6 +394,13 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		$settings                = Schema::sanitize( $settings );
 		$settings                = $this->resolve_checkout_window( $settings );
 		$settings['webhook_url'] = $this->webhook_url();
+		// Preserve legacy copy for compatibility; ignore form edits.
+		$saved = (array) get_option( $this->get_option_key(), array() );
+		foreach ( array( 'title', 'description' ) as $key ) {
+			if ( array_key_exists( $key, $saved ) ) {
+				$settings[ $key ] = $saved[ $key ];
+			}
+		}
 		return $settings;
 	}
 

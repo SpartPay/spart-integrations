@@ -71,6 +71,8 @@ final class StorefrontDialog {
 	}
 
 	/**
+	 * Translate and escape display copy.
+	 *
 	 * @param string $code Symbolic gettext key.
 	 */
 	private static function text( string $code ): string {

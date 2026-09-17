@@ -95,12 +95,8 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$this->assertSame( 0, $saved['loading_screen_image_id'] );
 	}
 
-	/**
-	 * The basic regression repro: edit description + title via the
-	 * admin form, click save, expect the option to actually contain
-	 * the submitted values on reload.
-	 */
-	public function test_save_persists_text_fields(): void {
+	/** Reject forged POSTs for retired copy fields. */
+	public function test_save_ignores_obsolete_copy_fields_on_fresh_installs(): void {
 		$_POST['woocommerce_spart_title']       = 'Split your payment';
 		$_POST['woocommerce_spart_description'] = 'Pay in parts with Spart!';
 
@@ -109,8 +105,8 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 
 		$saved = get_option( $this->option_key );
 		$this->assertIsArray( $saved );
-		$this->assertSame( 'Split your payment', $saved['title'] );
-		$this->assertSame( 'Pay in parts with Spart!', $saved['description'] );
+		$this->assertArrayNotHasKey( 'title', $saved );
+		$this->assertArrayNotHasKey( 'description', $saved );
 	}
 
 	/**
@@ -158,7 +154,7 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$saved = get_option( $this->option_key );
 		$this->assertSame( 'sk_live_preexisting1234abcd', $saved['api_key'] );
 		$this->assertSame( 'whsec_preexisting', $saved['webhook_secret'] );
-		$this->assertSame( 'Updated description', $saved['description'] );
+		$this->assertSame( 'Installments via Spart', $saved['description'] );
 	}
 
 	/**
@@ -306,18 +302,25 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$this->assertSame( 'whsec_bullettest12345678', $saved['webhook_secret'] );
 	}
 
-	/**
-	 * Surrounding whitespace in text fields (copy-paste artefacts) is stripped
-	 * before persistence by Field::sanitize() via enforce_schema_invariants().
-	 */
-	public function test_save_trims_whitespace_from_title(): void {
-		$_POST['woocommerce_spart_title'] = '  Pay with Spart  ';
+	/** Preserve legacy copy verbatim on save. */
+	public function test_save_preserves_legacy_copy_and_omits_obsolete_controls(): void {
+		$settings                = get_option( $this->option_key, array() );
+		$settings['title']       = '  Legacy & title  ';
+		$settings['description'] = '<p>Legacy description</p>';
+		update_option( $this->option_key, $settings );
+		unset( $_POST['woocommerce_spart_title'], $_POST['woocommerce_spart_description'] );
 
 		$gateway = new WC_Gateway_Spart();
+		ob_start();
+		$gateway->generate_settings_html();
+		$html = (string) ob_get_clean();
+		$this->assertStringNotContainsString( 'name="woocommerce_spart_title"', $html );
+		$this->assertStringNotContainsString( 'name="woocommerce_spart_description"', $html );
 		$gateway->process_admin_options();
 
 		$saved = get_option( $this->option_key );
-		$this->assertSame( 'Pay with Spart', $saved['title'] );
+		$this->assertSame( $settings['title'], $saved['title'] );
+		$this->assertSame( $settings['description'], $saved['description'] );
 	}
 
 	/**

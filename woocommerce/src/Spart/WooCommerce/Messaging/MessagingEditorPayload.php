@@ -26,8 +26,8 @@ use Spart\WooCommerce\Plugin;
  *
  * Shape:
  *   array{
- *     codes:    array{productLine1: string, productLine2: string, cartLine1: string, cartLine2: string},
- *     previews: array{productLine1: string, productLine2: string, cartLine1: string, cartLine2: string},
+ *     codes:    array{productLine1: string, productLine2: string, cartLine1: string},
+ *     previews: array{productLine1: string, productLine2: string, cartLine1: string},
  *   }
  */
 final class MessagingEditorPayload {
@@ -50,13 +50,11 @@ final class MessagingEditorPayload {
 				'productLine1' => Constants::MSG_CODE_PRODUCT_LINE_1,
 				'productLine2' => Constants::MSG_CODE_PRODUCT_LINE_2,
 				'cartLine1'    => Constants::MSG_CODE_CART_LINE_1,
-				'cartLine2'    => Constants::MSG_CODE_CART_LINE_2,
 			),
 			'previews'  => array(
 				'productLine1' => \__( Constants::MSG_CODE_PRODUCT_LINE_1, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 				'productLine2' => \__( Constants::MSG_CODE_PRODUCT_LINE_2, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 				'cartLine1'    => \__( Constants::MSG_CODE_CART_LINE_1, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
-				'cartLine2'    => \__( Constants::MSG_CODE_CART_LINE_2, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 			),
 		);
 	}
