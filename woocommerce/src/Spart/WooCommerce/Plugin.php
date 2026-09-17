@@ -53,7 +53,7 @@ use Spart\WooCommerce\Webhooks\WpOrderResolver;
  */
 final class Plugin {
 
-	public const VERSION = '0.5.2';
+	public const VERSION = '0.5.3';
 
 	/**
 	 * Absolute path to the plugin entry file.

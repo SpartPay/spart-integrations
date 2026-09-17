@@ -137,9 +137,9 @@ final class BlocksCheckoutPageTest extends WC_Spart_IntegrationTestCase {
 
 		$ver = (string) ( $registered->ver ?? '' );
 		$this->assertSame(
-			'0.5.2',
+			'0.5.3',
 			$ver,
-			"Registered script ver must equal the bumped plugin version 0.5.2 (got '{$ver}')."
+			"Registered script ver must equal the bumped plugin version 0.5.3 (got '{$ver}')."
 		);
 	}
 

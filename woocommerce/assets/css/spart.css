@@ -147,7 +147,7 @@
 .spart-explainer *,
 .spart-explainer h2,
 .spart-explainer h3 {
-	font-family: inherit;
+	font-family: inherit !important;
 }
 
 .spart-explainer.spart-explainer--fallback {
