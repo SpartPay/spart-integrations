@@ -22,8 +22,10 @@
 		} );
 		scrollStyles = [];
 		background.forEach( function ( item ) {
-			if ( ! item.inert ) {
+			if ( item.inert === null ) {
 				item.node.removeAttribute( 'inert' );
+			} else {
+				item.node.setAttribute( 'inert', item.inert );
 			}
 			if ( item.hidden === null ) {
 				item.node.removeAttribute( 'aria-hidden' );
@@ -77,11 +79,13 @@
 		} else {
 			dialog.setAttribute( 'open', '' );
 			dialog.classList.add( 'spart-explainer--fallback' );
-			background = Array.from( document.body.children ).filter( function ( node ) {
-				return node !== dialog && ! node.contains( dialog );
-			} ).map( function ( node ) {
-				return { node: node, inert: node.hasAttribute( 'inert' ), hidden: node.getAttribute( 'aria-hidden' ) };
-			} );
+			for ( var ancestor = dialog; ancestor.parentElement && ancestor !== document.body; ancestor = ancestor.parentElement ) {
+				Array.from( ancestor.parentElement.children ).forEach( function ( node ) {
+					if ( node !== ancestor ) {
+						background.push( { node: node, inert: node.getAttribute( 'inert' ), hidden: node.getAttribute( 'aria-hidden' ) } );
+					}
+				} );
+			}
 		}
 		scrollStyles.forEach( function ( item ) {
 			item.node.style.setProperty( 'overflow', 'hidden', 'important' );

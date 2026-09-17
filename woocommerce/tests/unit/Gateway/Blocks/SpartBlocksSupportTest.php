@@ -44,6 +44,17 @@ final class SpartBlocksSupportTest extends TestCase {
 		);
 	}
 
+	public function test_payload_honors_title_filter_without_constructing_gateway_registry(): void {
+		Functions\expect( 'WC' )->never();
+		Functions\expect( 'add_action' )->never();
+		Functions\expect( 'apply_filters' )->once()
+			->with( 'woocommerce_gateway_title', 'SPART_CHECKOUT_TITLE', 'spart' )->andReturn( 'Filtered title' );
+		$data = $this->build()->get_payment_method_data();
+		$this->assertSame( 'Filtered title', $data['title'] );
+		$this->assertSame( '', $data['description'] );
+		$this->assertSame( self::ASSETS_URL . 'images/spart-logo.svg', $data['logoUrl'] );
+	}
+
 	public function test_name_is_spart_gateway_id(): void {
 		$this->assertSame( WC_Gateway_Spart::GATEWAY_ID, $this->build()->get_name() );
 	}

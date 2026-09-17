@@ -62,7 +62,7 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 				'spart-messaging',
 				'https://example.test/wp-content/plugins/spart-woocommerce/assets/css/spart.css',
 				array(),
-				'0.5.1'
+				'0.5.2'
 			);
 		Functions\expect( 'wp_register_script' )
 			->once()
@@ -70,7 +70,7 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 				'spart-messaging-blocks-editor',
 				'https://example.test/wp-content/plugins/spart-woocommerce/assets/js/messaging-blocks.js',
 				array( 'wp-blocks', 'wp-element' ),
-				'0.5.1',
+				'0.5.2',
 				true
 			);
 		// register_on_init no longer localises — that ships on enqueue_block_editor_assets.
@@ -115,7 +115,7 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 			'spart-storefront-dialog',
 			'https://example.test/wp-content/plugins/spart-woocommerce/assets/js/storefront-dialog.js',
 			array(),
-			'0.5.1',
+			'0.5.2',
 			true
 		);
 		Functions\when( 'get_option' )->justReturn(
@@ -137,7 +137,7 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 				'spart-messaging',
 				'https://example.test/wp-content/plugins/spart-woocommerce/assets/css/spart.css',
 				array(),
-				'0.5.1'
+				'0.5.2'
 			);
 
 		MessagingBlocksRegistrar::enqueue_front_styles();

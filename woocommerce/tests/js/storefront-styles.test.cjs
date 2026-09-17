@@ -28,12 +28,12 @@ test( 'popup text inherits its body font instead of merchant heading fonts', ( t
 	assert.equal( dom.window.getComputedStyle( document.querySelector( '#merchant-button' ) ).fontFamily, '"Caveat Brush", cursive' );
 } );
 
-test( 'font-fix build bumps the shared asset cache version and plugin header together', () => {
+test( 'storefront fixes bump the shared asset cache version and plugin header together', () => {
 	const root = path.join( __dirname, '../..' );
 	const plugin = fs.readFileSync( path.join( root, 'src/Spart/WooCommerce/Plugin.php' ), 'utf8' );
 	const bootstrap = fs.readFileSync( path.join( root, 'spart-woocommerce.php' ), 'utf8' );
 	const version = plugin.match( /public const VERSION = '([^']+)'/ )[ 1 ];
-	assert.equal( version, '0.5.1' );
+	assert.equal( version, '0.5.2' );
 	assert.equal( bootstrap.match( /Version:\s+(\S+)/ )[ 1 ], version );
 } );
 

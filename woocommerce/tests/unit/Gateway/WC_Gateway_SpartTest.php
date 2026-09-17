@@ -21,6 +21,23 @@ use Spart\WooCommerce\Settings\Schema;
  */
 final class WC_Gateway_SpartTest extends TestCase {
 
+	public function test_gateway_title_and_icon_honor_public_woocommerce_filters(): void {
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		Monkey\Functions\when( 'esc_url' )->returnArg();
+		Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+		Monkey\Functions\expect( 'apply_filters' )->once()
+			->with( 'woocommerce_gateway_title', 'SPART_CHECKOUT_TITLE', 'spart' )->andReturn( 'Filtered title' );
+		Monkey\Functions\expect( 'apply_filters' )->once()
+			->with(
+				'woocommerce_gateway_icon',
+				'<img class="spart-checkout-logo" src="https://shop.example/assets/images/spart-logo.svg" alt="SPART!" width="74" height="15">',
+				'spart'
+			)->andReturn( '<img alt="Filtered icon">' );
+		$gateway = new WC_Gateway_Spart();
+		$this->assertSame( 'Filtered title', $gateway->get_title() );
+		$this->assertSame( '<img alt="Filtered icon">', $gateway->get_icon() );
+	}
+
 	public function test_settings_save_preserves_legacy_copy_verbatim_instead_of_accepting_post_edits(): void {
 		$saved = array(
 			'title'       => '  Legacy & title  ',

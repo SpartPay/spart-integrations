@@ -34,12 +34,13 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 
 	/** Keep markup out of the persisted payment title. */
 	public function get_title(): string {
-		return __( 'SPART_CHECKOUT_TITLE', 'spart-woocommerce' );
+		return apply_filters( 'woocommerce_gateway_title', __( 'SPART_CHECKOUT_TITLE', 'spart-woocommerce' ), $this->id );
 	}
 
 	/** Use WooCommerce's native icon slot. */
 	public function get_icon(): string {
-		return '<img class="spart-checkout-logo" src="' . esc_url( plugins_url( 'assets/images/spart-logo.svg', Plugin::plugin_file() ) ) . '" alt="SPART!" width="74" height="15">';
+		$icon = '<img class="spart-checkout-logo" src="' . esc_url( plugins_url( 'assets/images/spart-logo.svg', Plugin::plugin_file() ) ) . '" alt="SPART!" width="74" height="15">';
+		return apply_filters( 'woocommerce_gateway_icon', $icon, $this->id );
 	}
 
 	/** Keep checkout label-only. */

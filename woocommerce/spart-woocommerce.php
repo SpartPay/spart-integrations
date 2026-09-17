@@ -3,7 +3,7 @@
  * Plugin Name:       Spart for WooCommerce
  * Plugin URI:        https://spartpay.com/
  * Description:       Accept payments split into multiple parts via Spart at WooCommerce checkout.
- * Version:           0.5.1
+ * Version:           0.5.2
  * Requires at least: 6.5
  * Requires PHP:      8.1
  * Author:            Spart

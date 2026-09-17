@@ -92,4 +92,24 @@ final class StorefrontLocaleTest extends WC_Spart_IntegrationTestCase {
 		$stored = wc_get_order( $order->get_id() );
 		$this->assertSame( 'Share your purchase without paying upfront', $stored->get_payment_method_title() );
 	}
+
+	public function test_public_gateway_filters_customize_classic_and_blocks_consistently(): void {
+		$title_filter = static fn( $title, $id ) => 'spart' === $id ? 'Custom ' . $title : $title;
+		$icon_filter  = static fn( $icon, $id ) => 'spart' === $id ? '<span>Custom icon</span>' . $icon : $icon;
+		add_filter( 'woocommerce_gateway_title', $title_filter, 10, 2 );
+		add_filter( 'woocommerce_gateway_icon', $icon_filter, 10, 2 );
+		try {
+			$gateway = new WC_Gateway_Spart();
+			$blocks  = new SpartBlocksSupport( new PaymentMethodDataBuilder(), plugins_url( 'assets/', Plugin::plugin_file() ), Plugin::VERSION );
+			$blocks->initialize();
+			$this->assertSame( 'Custom Share your purchase without paying upfront', $gateway->get_title() );
+			$this->assertSame( $gateway->get_title(), $blocks->get_payment_method_data()['title'] );
+			$this->assertStringStartsWith( '<span>Custom icon</span>', $gateway->get_icon() );
+			$this->assertStringContainsString( 'spart-logo.svg', $gateway->get_icon() );
+			$this->assertSame( '', $gateway->get_description() );
+		} finally {
+			remove_filter( 'woocommerce_gateway_title', $title_filter, 10 );
+			remove_filter( 'woocommerce_gateway_icon', $icon_filter, 10 );
+		}
+	}
 }

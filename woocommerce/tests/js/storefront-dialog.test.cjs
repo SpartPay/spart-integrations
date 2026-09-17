@@ -98,3 +98,32 @@ test( 'closing after cart replacement restores focus to the replacement help but
 	dialog.querySelector( 'button' ).click();
 	assert.equal( document.activeElement, document.querySelector( '[data-spart-dialog-open]' ) );
 } );
+
+test( 'nested fallback hides background siblings at every ancestor and restores exact attributes', ( t ) => {
+	const { document, dialog } = page( t, false );
+	const main = document.querySelector( 'main' );
+	const opener = main.querySelector( 'button' );
+	const wrapper = document.createElement( 'div' );
+	wrapper.innerHTML = '<header aria-hidden="false">Header</header><footer><nav inert="inert" aria-hidden="true">Footer links</nav><section><p>Footer text</p></section></footer>';
+	document.body.append( wrapper );
+	wrapper.prepend( main );
+	wrapper.querySelector( 'section' ).append( dialog );
+	const siblings = [ main, wrapper.querySelector( 'header' ), wrapper.querySelector( 'nav' ), wrapper.querySelector( 'p' ) ];
+	const original = siblings.map( ( node ) => [ node.getAttribute( 'inert' ), node.getAttribute( 'aria-hidden' ) ] );
+	for ( let repeat = 0; repeat < 2; repeat++ ) {
+		opener.click();
+		for ( const node of siblings ) {
+			assert.equal( node.hasAttribute( 'inert' ), true, node.tagName );
+			assert.equal( node.getAttribute( 'aria-hidden' ), 'true', node.tagName );
+		}
+		for ( let node = dialog; node; node = node.parentElement ) {
+			assert.equal( node.hasAttribute( 'inert' ), false, node.tagName );
+			assert.notEqual( node.getAttribute( 'aria-hidden' ), 'true', node.tagName );
+		}
+		dialog.querySelector( 'button' ).click();
+		assert.equal( document.activeElement, opener );
+		siblings.forEach( ( node, index ) => assert.deepEqual(
+			[ node.getAttribute( 'inert' ), node.getAttribute( 'aria-hidden' ) ], original[ index ]
+		) );
+	}
+} );
