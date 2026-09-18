@@ -88,7 +88,7 @@ final class MessagingBlocksRegistrar {
 	}
 
 	/**
-	 * Enqueue the shared CSS on product and cart pages when messaging is enabled.
+	 * Enqueue checkout CSS and enabled product/cart messaging assets.
 	 *
 	 * @return void
 	 */

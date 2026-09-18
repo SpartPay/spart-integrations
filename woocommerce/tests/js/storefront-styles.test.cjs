@@ -33,20 +33,27 @@ test( 'storefront fixes bump the shared asset cache version and plugin header to
 	const plugin = fs.readFileSync( path.join( root, 'src/Spart/WooCommerce/Plugin.php' ), 'utf8' );
 	const bootstrap = fs.readFileSync( path.join( root, 'spart-woocommerce.php' ), 'utf8' );
 	const version = plugin.match( /public const VERSION = '([^']+)'/ )[ 1 ];
-	assert.equal( version, '0.5.3' );
+	assert.equal( version, '0.5.4' );
 	assert.equal( bootstrap.match( /Version:\s+(\S+)/ )[ 1 ], version );
 } );
 
 test( 'popup font inheritance takes priority over later high-specificity theme rules', ( t ) => {
 	const css = fs.readFileSync( path.join( __dirname, '../../assets/css/spart.css' ), 'utf8' );
 	const dom = new JSDOM( `<style>${ css }</style>
-		<style>body.shop-theme #site-footer h2 { font-family: "Caveat Brush", cursive; }</style>
+		<style>body.shop-theme #site-footer h2, body.shop-theme dialog.spart-explainer { font-family: "Caveat Brush", cursive; }</style>
 		<body class="shop-theme"><footer id="site-footer">
 		<h2 id="merchant-heading">Store heading</h2>
+		<dialog id="merchant-dialog">Store dialog</dialog>
 		<dialog class="spart-explainer"><h2>Shop together.</h2><h3>How?</h3><p>Share <strong>together</strong>.</p><button>Close</button></dialog>
 		</footer></body>` );
 	t.after( () => dom.window.close() );
 	const { document } = dom.window;
+	const baseFontRule = Array.from( document.styleSheets[ 0 ].cssRules ).find(
+		( rule ) => rule.selectorText === '.spart-explainer'
+	);
+	assert.match( baseFontRule.style.getPropertyValue( 'font-family' ), /Segoe UI/ );
+	assert.equal( baseFontRule.style.getPropertyPriority( 'font-family' ), 'important' );
+	assert.equal( document.querySelector( '#merchant-dialog' ).matches( baseFontRule.selectorText ), false );
 	const fontRule = Array.from( document.styleSheets[ 0 ].cssRules ).find(
 		( rule ) => rule.style && rule.style.getPropertyValue( 'font-family' ) === 'inherit'
 	);
