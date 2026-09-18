@@ -24,7 +24,7 @@ use Spart\WooCommerce\Plugin;
  *
  * The filter ALSO emits a one-shot diagnostic warning whenever a known
  * SPART_* code has been translated by a third party (i.e. neither the
- * untranslated code nor the canonical English we ship). This makes
+ * untranslated code nor the English or bundled locale copy). This makes
  * unexpected translation overrides visible in the WC log without
  * changing user-facing output — translators supplying authoritative
  * per-locale text continue to win, as expected.
@@ -38,6 +38,13 @@ final class GettextFilter {
 	 * @var array<string, true>
 	 */
 	private static array $warned = array();
+
+	/**
+	 * Bundled readers by locale.
+	 *
+	 * @var array<string, \WP_Translation_File|false>
+	 */
+	private static array $bundled_catalogs = array();
 
 	/**
 	 * Registers the gettext filter with WordPress.
@@ -62,6 +69,7 @@ final class GettextFilter {
 	 * Semantics:
 	 *  - $translation === $text                   → no upstream translation; substitute canonical English.
 	 *  - $translation === Strings::CODES[$text]   → another filter already substituted; pass through.
+	 *  - $translation matches the bundled locale → pass through without a diagnostic.
 	 *  - $translation !== $text, !== canonical    → third party translated; warn (once) AND pass through
 	 *                                                so legitimate per-locale translations keep working.
 	 *
@@ -85,7 +93,7 @@ final class GettextFilter {
 			return $canonical;
 		}
 
-		if ( $translation !== $canonical && ! isset( self::$warned[ $text ] ) ) {
+		if ( $translation !== $canonical && ! isset( self::$warned[ $text ] ) && ! self::is_bundled_translation( $text, $translation ) ) {
 			self::$warned[ $text ] = true;
 			Plugin::logger()->warning(
 				'spart.i18n.unexpected_translation',
@@ -99,6 +107,26 @@ final class GettextFilter {
 		}
 
 		return $translation;
+	}
+
+	/**
+	 * Use the shipped catalog, not WordPress's merged catalog.
+	 *
+	 * @param string $text        Symbolic code.
+	 * @param string $translation Display copy.
+	 */
+	private static function is_bundled_translation( string $text, string $translation ): bool {
+		if ( ! class_exists( \WP_Translation_File::class ) || ! function_exists( 'determine_locale' ) ) {
+			return false;
+		}
+
+		$locale = determine_locale();
+		if ( ! isset( self::$bundled_catalogs[ $locale ] ) ) {
+			$file                              = dirname( __DIR__, 4 ) . '/languages/' . Strings::TEXT_DOMAIN . '-' . basename( $locale ) . '.mo';
+			self::$bundled_catalogs[ $locale ] = \WP_Translation_File::create( $file );
+		}
+		$catalog = self::$bundled_catalogs[ $locale ];
+		return false !== $catalog && $translation === $catalog->translate( $text );
 	}
 
 	/**

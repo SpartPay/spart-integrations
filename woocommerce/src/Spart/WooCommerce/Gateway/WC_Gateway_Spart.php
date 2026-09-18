@@ -32,6 +32,25 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 
 	public const GATEWAY_ID = 'spart';
 
+	/** Keep markup out of the persisted payment title. */
+	public function get_title(): string {
+		return apply_filters( 'woocommerce_gateway_title', __( 'SPART_CHECKOUT_TITLE', 'spart-woocommerce' ), $this->id );
+	}
+
+	/** Use WooCommerce's native icon slot. */
+	public function get_icon(): string {
+		$icon = '<img class="spart-checkout-logo" src="' . esc_url( plugins_url( 'assets/images/spart-logo.svg', Plugin::plugin_file() ) ) . '" alt="SPART!" width="74" height="15">';
+		return apply_filters( 'woocommerce_gateway_icon', $icon, $this->id );
+	}
+
+	/** Keep checkout label-only. */
+	public function get_description(): string {
+		return '';
+	}
+
+	/** Leave the payment selector to WooCommerce. */
+	public function payment_fields(): void {}
+
 	/**
 	 * Initialises gateway properties and hooks.
 	 */
@@ -46,8 +65,8 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		$this->init_settings();
 
 		$this->enabled     = $this->get_option( 'enabled' );
-		$this->title       = $this->get_option( 'title' );
-		$this->description = $this->get_option( 'description' );
+		$this->title       = $this->get_option( 'title', '' );
+		$this->description = $this->get_option( 'description', '' );
 
 		add_action(
 			'woocommerce_update_options_payment_gateways_' . $this->id,
@@ -376,6 +395,13 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		$settings                = Schema::sanitize( $settings );
 		$settings                = $this->resolve_checkout_window( $settings );
 		$settings['webhook_url'] = $this->webhook_url();
+		// Preserve legacy copy for compatibility; ignore form edits.
+		$saved = (array) get_option( $this->get_option_key(), array() );
+		foreach ( array( 'title', 'description' ) as $key ) {
+			if ( array_key_exists( $key, $saved ) ) {
+				$settings[ $key ] = $saved[ $key ];
+			}
+		}
 		return $settings;
 	}
 

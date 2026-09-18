@@ -410,10 +410,10 @@ test( 'Blocks resets on payment error, cancelled idle and gateway change', async
 	assert.equal( overlay.isVisible(), false );
 } );
 
-test( 'Blocks with loading disabled retains description and registers no loading observers', async ( t ) => {
+test( 'Blocks with loading disabled renders no description and registers no loading observers', async ( t ) => {
 	const { document, callbacks, render } = await blocks( t, false );
 	await render( 'processing' );
-	assert.match( document.querySelector( 'main' ).textContent, /Spart description/ );
+	assert.equal( document.querySelector( 'main' ).textContent, '' );
 	assert.equal( callbacks.size, 0 );
 	assert.equal( document.querySelector( 'dialog' ), null );
 } );

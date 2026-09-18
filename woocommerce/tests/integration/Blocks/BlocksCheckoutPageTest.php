@@ -15,10 +15,7 @@
  * - Plugin → blocks_support() listens on the WC Blocks
  *   payment-method registration hook AND, when the hook fires, registers
  *   our SpartBlocksSupport against the registry.
- * - SpartBlocksSupport's get_payment_method_data() returns the
- *   merchant-configured title/description verbatim plus a logoUrl pointing
- *   at the shipped SVG asset (proves the PaymentMethodDataBuilder is wired
- *   to the live Settings\Field reader).
+ * - Blocks uses the shared checkout headline and official wordmark.
  * - SpartBlocksSupport's script handle is registered with WP and its src
  *   resolves to the shipped assets/js/blocks-checkout.js with the bumped
  *   plugin version in the ?ver= query string.
@@ -85,14 +82,14 @@ final class BlocksCheckoutPageTest extends WC_Spart_IntegrationTestCase {
 
 		$this->assertIsArray( $data );
 		$this->assertSame(
-			self::TEST_TITLE,
+			'Share your purchase without paying upfront',
 			$data['title'] ?? null,
-			'Block payload title must reflect the merchant-configured title verbatim.'
+			'Block payload must use the localized storefront headline.'
 		);
 		$this->assertSame(
-			self::TEST_DESCRIPTION,
+			'',
 			$data['description'] ?? null,
-			'Block payload description must reflect the merchant-configured description verbatim.'
+			'Checkout must not expose the saved legacy description.'
 		);
 		$this->assertArrayHasKey( 'logoUrl', $data, 'Block payload must include a logoUrl.' );
 		$this->assertStringContainsString(
@@ -140,9 +137,9 @@ final class BlocksCheckoutPageTest extends WC_Spart_IntegrationTestCase {
 
 		$ver = (string) ( $registered->ver ?? '' );
 		$this->assertSame(
-			'0.5.0',
+			'0.5.4',
 			$ver,
-			"Registered script ver must equal the bumped plugin version 0.5.0 (got '{$ver}')."
+			"Registered script ver must equal the bumped plugin version 0.5.4 (got '{$ver}')."
 		);
 	}
 

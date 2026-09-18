@@ -7,12 +7,24 @@
 	var previews = data.previews || {};
 	var codes    = data.codes || {};
 
+	var brand = function () {
+		return el( 'span', { className: 'spart-messaging__brand' },
+			el( 'span', { className: 'spart-messaging__badge', 'aria-hidden': true },
+				el( 'img', { src: data.symbolUrl, alt: '', width: 20, height: 20 } )
+			),
+			el( 'img', { className: 'spart-wordmark', src: data.logoUrl, alt: 'SPART!', width: 1044, height: 205 } )
+		);
+	};
+
 	var productEdit = function () {
 		return el(
 			'div',
 			{ className: 'spart-messaging spart-messaging--product' },
-			el( 'p', { className: 'spart-messaging__line' }, previews.productLine1 || codes.productLine1 || 'SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_1' ),
-			el( 'p', { className: 'spart-messaging__line' }, previews.productLine2 || codes.productLine2 || 'SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_2' )
+			brand(),
+			el( 'div', { className: 'spart-messaging__copy' },
+				el( 'p', { className: 'spart-messaging__line' }, el( 'strong', null, previews.productLine1 || codes.productLine1 || 'SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_1' ) ),
+				el( 'p', { className: 'spart-messaging__line' }, previews.productLine2 || codes.productLine2 || 'SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_2' )
+			)
 		);
 	};
 
@@ -20,8 +32,10 @@
 		return el(
 			'div',
 			{ className: 'spart-messaging spart-messaging--cart' },
-			el( 'p', { className: 'spart-messaging__line' }, previews.cartLine1 || codes.cartLine1 || 'SPART_MSG_CART_BEFORE_TOTALS_LINE_1' ),
-			el( 'p', { className: 'spart-messaging__line' }, previews.cartLine2 || codes.cartLine2 || 'SPART_MSG_CART_BEFORE_TOTALS_LINE_2' )
+			brand(),
+			el( 'div', { className: 'spart-messaging__copy' },
+				el( 'p', { className: 'spart-messaging__line' }, el( 'strong', null, previews.cartLine1 || codes.cartLine1 || 'SPART_MSG_CART_BEFORE_TOTALS_LINE_1' ) )
+			)
 		);
 	};
 

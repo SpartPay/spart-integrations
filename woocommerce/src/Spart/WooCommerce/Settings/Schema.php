@@ -143,24 +143,6 @@ final class Schema {
 					'label' => __( 'Enable Spart payment method', 'spart-woocommerce' ),
 				)
 			),
-			Field::text(
-				'title',
-				__( 'Title', 'spart-woocommerce' ),
-				__( 'Pay with Spart', 'spart-woocommerce' ),
-				array(
-					'description' => __( 'Title shown to customers during checkout.', 'spart-woocommerce' ),
-					'desc_tip'    => true,
-				)
-			),
-			Field::textarea(
-				'description',
-				__( 'Description', 'spart-woocommerce' ),
-				__( 'Split the payment with your friends!', 'spart-woocommerce' ),
-				array(
-					'description' => __( 'Description shown to customers during checkout.', 'spart-woocommerce' ),
-					'desc_tip'    => true,
-				)
-			),
 			Field::password(
 				'api_key',
 				__( 'API Key', 'spart-woocommerce' ),

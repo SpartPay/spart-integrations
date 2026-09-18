@@ -2,6 +2,24 @@
 
 Spart payment gateway plugin for WooCommerce.
 
+## Storefront messaging
+
+Enable product and cart messages independently in **WooCommerce → Settings →
+Payments → Spart**. Classic hooks and the `spart/product-messaging` and
+`spart/cart-messaging` blocks share the same branded panels and information dialog.
+The help button opens it; Escape or the close button returns focus without
+selecting a payment method. The dialog scrolls on small screens and locks background scrolling.
+All dialog text, including headings, uses its system sans-serif font rather than theme heading fonts.
+
+Classic and Blocks checkout show only the bold shared-purchase headline and
+SPART! wordmark beside WooCommerce's own selector. Legacy saved title/description
+values no longer control checkout copy. Payment processing and loading effects are unchanged.
+
+Italian storefront copy ships in `languages/spart-woocommerce-it_IT.po` and `.mo`;
+other locales fall back to English. Standard gettext translations take precedence.
+After editing the catalog, rebuild it with
+`msgfmt --check -o languages/spart-woocommerce-it_IT.mo languages/spart-woocommerce-it_IT.po`.
+
 ## Optional checkout loading screen
 
 In **WooCommerce → Settings → Payments → Spart**, the **Checkout loading screen**

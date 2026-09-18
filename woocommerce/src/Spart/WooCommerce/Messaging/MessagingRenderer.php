@@ -9,21 +9,9 @@ declare(strict_types=1);
 
 namespace Spart\WooCommerce\Messaging;
 
-/**
- * Builds the two-line messaging shell used by both cart and product
- * messaging surfaces. Centralising the markup keeps the BEM class
- * structure consistent across surfaces and lets future schema changes
- * (e.g. an icon slot, a CTA link) ship in one place.
- *
- * Callers are responsible for pre-escaping the line strings — pass the
- * output of `esc_html__()` (or equivalent) into `$line1` / `$line2`.
- * The renderer treats them as trusted HTML fragments.
- *
- * The `$context` and `$aria_live` parameters are constrained by the
- * renderer itself (allowlist / class sanitisation) and additionally
- * passed through `esc_attr()`, so callers may pass plain dynamic
- * values without pre-escaping.
- */
+use Spart\WooCommerce\Plugin;
+
+/** Callers must pre-escape copy. */
 final class MessagingRenderer {
 
 	/**
@@ -67,8 +55,13 @@ final class MessagingRenderer {
 		}
 
 		return '<div class="spart-messaging spart-messaging--' . $context_attr . '"' . $aria_attr . '>'
-			. '<p class="spart-messaging__line">' . $line1 . '</p>'
-			. '<p class="spart-messaging__line">' . $line2 . '</p>'
+			. '<span class="spart-messaging__brand"><span class="spart-messaging__badge" aria-hidden="true">'
+			. '<img src="' . esc_url( plugins_url( 'assets/images/spart-symbol.svg', Plugin::plugin_file() ) ) . '" alt="" width="20" height="20"></span>'
+			. '<img class="spart-wordmark" src="' . esc_url( plugins_url( 'assets/images/spart-logo.svg', Plugin::plugin_file() ) ) . '" alt="SPART!" width="1044" height="205"></span>'
+			. '<div class="spart-messaging__copy"><p class="spart-messaging__line"><strong>' . $line1 . '</strong></p>'
+			. ( '' !== $line2 ? '<p class="spart-messaging__line">' . $line2 . '</p>' : '' ) . '</div>'
+			. '<button type="button" class="spart-messaging__help" data-spart-dialog-open aria-haspopup="dialog" aria-controls="spart-explainer" aria-label="'
+			. esc_attr__( 'SPART_DIALOG_HELP', 'spart-woocommerce' ) . '">' . StorefrontDialog::icon( 'help' ) . '</button>'
 			. '</div>';
 	}
 }

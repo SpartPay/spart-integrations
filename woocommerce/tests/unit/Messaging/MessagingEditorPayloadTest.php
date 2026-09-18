@@ -27,6 +27,26 @@ use Spart\WooCommerce\Messaging\MessagingEditorPayload;
  */
 final class MessagingEditorPayloadTest extends TestCase {
 
+	protected function setUp(): void {
+		parent::setUp();
+		\Brain\Monkey\setUp();
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		\Brain\Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+	}
+
+	protected function tearDown(): void {
+		\Brain\Monkey\tearDown();
+		parent::tearDown();
+	}
+
+	public function test_editor_payload_includes_official_artwork_urls(): void {
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		\Brain\Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+		$payload = MessagingEditorPayload::build();
+		$this->assertSame( 'https://shop.example/assets/images/spart-logo.svg', $payload['logoUrl'] ?? null );
+		$this->assertSame( 'https://shop.example/assets/images/spart-symbol.svg', $payload['symbolUrl'] ?? null );
+	}
+
 	public function test_build_returns_codes_and_previews_arrays(): void {
 		$payload = MessagingEditorPayload::build();
 
@@ -34,7 +54,7 @@ final class MessagingEditorPayloadTest extends TestCase {
 		$this->assertArrayHasKey( 'previews', $payload );
 	}
 
-	public function test_codes_array_carries_the_four_screaming_snake_codes(): void {
+	public function test_codes_array_carries_only_visible_messaging_lines(): void {
 		$payload = MessagingEditorPayload::build();
 
 		$this->assertSame(
@@ -42,7 +62,6 @@ final class MessagingEditorPayloadTest extends TestCase {
 				'productLine1' => Constants::MSG_CODE_PRODUCT_LINE_1,
 				'productLine2' => Constants::MSG_CODE_PRODUCT_LINE_2,
 				'cartLine1'    => Constants::MSG_CODE_CART_LINE_1,
-				'cartLine2'    => Constants::MSG_CODE_CART_LINE_2,
 			),
 			$payload['codes']
 		);
@@ -50,6 +69,7 @@ final class MessagingEditorPayloadTest extends TestCase {
 
 	public function test_previews_array_routes_codes_through_translator(): void {
 		$payload = MessagingEditorPayload::build();
+		$this->assertSame( array( 'productLine1', 'productLine2', 'cartLine1' ), array_keys( $payload['previews'] ) );
 
 		$this->assertSame(
 			\__( Constants::MSG_CODE_PRODUCT_LINE_1, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
@@ -63,10 +83,6 @@ final class MessagingEditorPayloadTest extends TestCase {
 			\__( Constants::MSG_CODE_CART_LINE_1, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 			$payload['previews']['cartLine1']
 		);
-		$this->assertSame(
-			\__( Constants::MSG_CODE_CART_LINE_2, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
-			$payload['previews']['cartLine2']
-		);
 	}
 
 	public function test_previews_array_carries_string_values(): void {
@@ -75,10 +91,8 @@ final class MessagingEditorPayloadTest extends TestCase {
 		$this->assertIsString( $payload['previews']['productLine1'] );
 		$this->assertIsString( $payload['previews']['productLine2'] );
 		$this->assertIsString( $payload['previews']['cartLine1'] );
-		$this->assertIsString( $payload['previews']['cartLine2'] );
 		$this->assertNotEmpty( $payload['previews']['productLine1'] );
 		$this->assertNotEmpty( $payload['previews']['productLine2'] );
 		$this->assertNotEmpty( $payload['previews']['cartLine1'] );
-		$this->assertNotEmpty( $payload['previews']['cartLine2'] );
 	}
 }

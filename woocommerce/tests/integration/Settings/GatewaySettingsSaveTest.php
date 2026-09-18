@@ -95,12 +95,8 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$this->assertSame( 0, $saved['loading_screen_image_id'] );
 	}
 
-	/**
-	 * The basic regression repro: edit description + title via the
-	 * admin form, click save, expect the option to actually contain
-	 * the submitted values on reload.
-	 */
-	public function test_save_persists_text_fields(): void {
+	/** Reject forged POSTs for retired copy fields. */
+	public function test_save_ignores_obsolete_copy_fields_on_fresh_installs(): void {
 		$_POST['woocommerce_spart_title']       = 'Split your payment';
 		$_POST['woocommerce_spart_description'] = 'Pay in parts with Spart!';
 
@@ -109,8 +105,8 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 
 		$saved = get_option( $this->option_key );
 		$this->assertIsArray( $saved );
-		$this->assertSame( 'Split your payment', $saved['title'] );
-		$this->assertSame( 'Pay in parts with Spart!', $saved['description'] );
+		$this->assertArrayNotHasKey( 'title', $saved );
+		$this->assertArrayNotHasKey( 'description', $saved );
 	}
 
 	/**
@@ -158,7 +154,7 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$saved = get_option( $this->option_key );
 		$this->assertSame( 'sk_live_preexisting1234abcd', $saved['api_key'] );
 		$this->assertSame( 'whsec_preexisting', $saved['webhook_secret'] );
-		$this->assertSame( 'Updated description', $saved['description'] );
+		$this->assertSame( 'Installments via Spart', $saved['description'] );
 	}
 
 	/**
@@ -219,14 +215,10 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 	}
 
 	/**
-	 * The "merchant repro": fully populated POST -> save -> reload ->
-	 * every field reflects what the merchant submitted. This is the
-	 * test that would have caught the original regression.
+	 * Saving current controls preserves fixed checkout copy after reload.
 	 */
 	public function test_save_then_reload_full_round_trip(): void {
 		$_POST['woocommerce_spart_enabled']                   = '1';
-		$_POST['woocommerce_spart_title']                     = 'Split with Spart';
-		$_POST['woocommerce_spart_description']               = 'Pay in installments.';
 		$_POST['woocommerce_spart_api_key']                   = 'sk_live_NEWAPIKEY12345678';
 		$_POST['woocommerce_spart_webhook_secret']            = 'whsec_NEWSECRET12345678';
 		$_POST['woocommerce_spart_messaging_enabled_product'] = '1';
@@ -239,8 +231,8 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$reloaded = new WC_Gateway_Spart();
 
 		$this->assertSame( 'yes', $reloaded->get_option( 'enabled' ) );
-		$this->assertSame( 'Split with Spart', $reloaded->get_option( 'title' ) );
-		$this->assertSame( 'Pay in installments.', $reloaded->get_option( 'description' ) );
+		$this->assertSame( 'Share your purchase without paying upfront', $reloaded->get_title() );
+		$this->assertSame( '', $reloaded->get_description() );
 		$this->assertSame( 'sk_live_NEWAPIKEY12345678', $reloaded->get_option( 'api_key' ) );
 		$this->assertSame( 'whsec_NEWSECRET12345678', $reloaded->get_option( 'webhook_secret' ) );
 		$this->assertSame( 'yes', $reloaded->get_option( 'messaging_enabled_product' ) );
@@ -306,18 +298,25 @@ final class GatewaySettingsSaveTest extends WC_Spart_IntegrationTestCase {
 		$this->assertSame( 'whsec_bullettest12345678', $saved['webhook_secret'] );
 	}
 
-	/**
-	 * Surrounding whitespace in text fields (copy-paste artefacts) is stripped
-	 * before persistence by Field::sanitize() via enforce_schema_invariants().
-	 */
-	public function test_save_trims_whitespace_from_title(): void {
-		$_POST['woocommerce_spart_title'] = '  Pay with Spart  ';
+	/** Preserve legacy copy verbatim on save. */
+	public function test_save_preserves_legacy_copy_and_omits_obsolete_controls(): void {
+		$settings                = get_option( $this->option_key, array() );
+		$settings['title']       = '  Legacy & title  ';
+		$settings['description'] = '<p>Legacy description</p>';
+		update_option( $this->option_key, $settings );
+		unset( $_POST['woocommerce_spart_title'], $_POST['woocommerce_spart_description'] );
 
 		$gateway = new WC_Gateway_Spart();
+		ob_start();
+		$gateway->generate_settings_html();
+		$html = (string) ob_get_clean();
+		$this->assertStringNotContainsString( 'name="woocommerce_spart_title"', $html );
+		$this->assertStringNotContainsString( 'name="woocommerce_spart_description"', $html );
 		$gateway->process_admin_options();
 
 		$saved = get_option( $this->option_key );
-		$this->assertSame( 'Pay with Spart', $saved['title'] );
+		$this->assertSame( $settings['title'], $saved['title'] );
+		$this->assertSame( $settings['description'], $saved['description'] );
 	}
 
 	/**

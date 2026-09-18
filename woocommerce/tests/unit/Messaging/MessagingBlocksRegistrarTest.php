@@ -23,6 +23,10 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 		Monkey\setUp();
 		Plugin::reset_for_tests();
 		Plugin::set_plugin_file_for_tests( '/var/www/spart-woocommerce/spart-woocommerce.php' );
+		Functions\when( 'is_checkout' )->justReturn( false );
+		Functions\when( 'is_admin' )->justReturn( false );
+		Functions\when( 'is_product' )->justReturn( false );
+		Functions\when( 'is_cart' )->justReturn( false );
 	}
 
 	protected function tearDown(): void {
@@ -58,7 +62,7 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 				'spart-messaging',
 				'https://example.test/wp-content/plugins/spart-woocommerce/assets/css/spart.css',
 				array(),
-				'0.5.0'
+				'0.5.4'
 			);
 		Functions\expect( 'wp_register_script' )
 			->once()
@@ -66,7 +70,7 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 				'spart-messaging-blocks-editor',
 				'https://example.test/wp-content/plugins/spart-woocommerce/assets/js/messaging-blocks.js',
 				array( 'wp-blocks', 'wp-element' ),
-				'0.5.0',
+				'0.5.4',
 				true
 			);
 		// register_on_init no longer localises — that ships on enqueue_block_editor_assets.
@@ -83,6 +87,7 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 	}
 
 	public function test_enqueue_block_editor_assets_localizes_editor_payload(): void {
+		Functions\when( 'plugins_url' )->returnArg();
 		Functions\expect( 'wp_localize_script' )
 			->once()
 			->with(
@@ -106,13 +111,22 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 	}
 
 	public function test_enqueue_front_styles_registers_and_enqueues_spart_css_when_messaging_enabled(): void {
+		Functions\expect( 'wp_enqueue_script' )->once()->with(
+			'spart-storefront-dialog',
+			'https://example.test/wp-content/plugins/spart-woocommerce/assets/js/storefront-dialog.js',
+			array(),
+			'0.5.4',
+			true
+		);
 		Functions\when( 'get_option' )->justReturn(
 			array(
 				'messaging_enabled_product' => 'yes',
 				'messaging_enabled_cart'    => 'no',
 			)
 		);
-		Functions\when( 'plugins_url' )->justReturn( 'https://example.test/wp-content/plugins/spart-woocommerce/assets/css/spart.css' );
+		Functions\when( 'plugins_url' )->alias(
+			static fn( string $path ): string => 'https://example.test/wp-content/plugins/spart-woocommerce/' . ltrim( $path, '/' )
+		);
 		Functions\when( 'plugin_dir_path' )->justReturn( '/var/www/spart-woocommerce/' );
 		Functions\when( 'trailingslashit' )->returnArg( 1 );
 		Functions\when( 'is_product' )->justReturn( true );
@@ -123,9 +137,34 @@ final class MessagingBlocksRegistrarTest extends TestCase {
 				'spart-messaging',
 				'https://example.test/wp-content/plugins/spart-woocommerce/assets/css/spart.css',
 				array(),
-				'0.5.0'
+				'0.5.4'
 			);
 
+		MessagingBlocksRegistrar::enqueue_front_styles();
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_checkout_gets_presentation_styles_but_no_explainer_assets(): void {
+		Functions\when( 'is_checkout' )->justReturn( true );
+		Functions\when( 'get_option' )->justReturn( array() );
+		Functions\when( 'plugins_url' )->returnArg();
+		Functions\expect( 'wp_enqueue_style' )->once();
+		Functions\expect( 'wp_enqueue_script' )->never();
+		MessagingBlocksRegistrar::enqueue_front_styles();
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_cart_toggle_does_not_load_explainer_on_disabled_product_pages(): void {
+		Functions\when( 'plugins_url' )->returnArg();
+		Functions\when( 'get_option' )->justReturn(
+			array(
+				'messaging_enabled_cart'    => 'yes',
+				'messaging_enabled_product' => 'no',
+			)
+		);
+		Functions\when( 'is_product' )->justReturn( true );
+		Functions\expect( 'wp_enqueue_style' )->never();
+		Functions\expect( 'wp_enqueue_script' )->never();
 		MessagingBlocksRegistrar::enqueue_front_styles();
 		$this->addToAssertionCount( 1 );
 	}

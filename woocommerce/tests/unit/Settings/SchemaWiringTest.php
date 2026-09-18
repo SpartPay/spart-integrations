@@ -28,7 +28,9 @@ final class SchemaWiringTest extends TestCase {
 		);
 		\Brain\Monkey\Functions\when( 'add_action' )->justReturn( null );
 		$gateway = new WC_Gateway_Spart();
-		$this->assertCount( 19, $gateway->form_fields );
+		$this->assertCount( 17, $gateway->form_fields );
+		$this->assertArrayNotHasKey( 'title', $gateway->form_fields );
+		$this->assertArrayNotHasKey( 'description', $gateway->form_fields );
 		$this->assertArrayHasKey( 'api_key', $gateway->form_fields );
 		$this->assertArrayHasKey( 'debug_api_endpoint', $gateway->form_fields );
 		$this->assertSame( 'password', $gateway->form_fields['api_key']['type'] );

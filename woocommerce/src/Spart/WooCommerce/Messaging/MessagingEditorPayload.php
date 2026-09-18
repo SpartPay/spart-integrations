@@ -12,6 +12,7 @@ namespace Spart\WooCommerce\Messaging;
 
 use Spart\WooCommerce\Constants;
 use Spart\WooCommerce\I18n\Strings;
+use Spart\WooCommerce\Plugin;
 
 /**
  * Builds the `spartMessaging` payload that ships preview text to the
@@ -25,8 +26,8 @@ use Spart\WooCommerce\I18n\Strings;
  *
  * Shape:
  *   array{
- *     codes:    array{productLine1: string, productLine2: string, cartLine1: string, cartLine2: string},
- *     previews: array{productLine1: string, productLine2: string, cartLine1: string, cartLine2: string},
+ *     codes:    array{productLine1: string, productLine2: string, cartLine1: string},
+ *     previews: array{productLine1: string, productLine2: string, cartLine1: string},
  *   }
  */
 final class MessagingEditorPayload {
@@ -35,23 +36,25 @@ final class MessagingEditorPayload {
 	 * Build the editor payload.
 	 *
 	 * @return array{
+	 *     logoUrl: string,
+	 *     symbolUrl: string,
 	 *     codes: array<string, string>,
 	 *     previews: array<string, string>,
 	 * }
 	 */
 	public static function build(): array {
 		return array(
-			'codes'    => array(
+			'logoUrl'   => plugins_url( 'assets/images/spart-logo.svg', Plugin::plugin_file() ),
+			'symbolUrl' => plugins_url( 'assets/images/spart-symbol.svg', Plugin::plugin_file() ),
+			'codes'     => array(
 				'productLine1' => Constants::MSG_CODE_PRODUCT_LINE_1,
 				'productLine2' => Constants::MSG_CODE_PRODUCT_LINE_2,
 				'cartLine1'    => Constants::MSG_CODE_CART_LINE_1,
-				'cartLine2'    => Constants::MSG_CODE_CART_LINE_2,
 			),
-			'previews' => array(
+			'previews'  => array(
 				'productLine1' => \__( Constants::MSG_CODE_PRODUCT_LINE_1, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 				'productLine2' => \__( Constants::MSG_CODE_PRODUCT_LINE_2, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 				'cartLine1'    => \__( Constants::MSG_CODE_CART_LINE_1, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
-				'cartLine2'    => \__( Constants::MSG_CODE_CART_LINE_2, Strings::TEXT_DOMAIN ), // phpcs:ignore WordPress.WP.I18n.NonSingularStringLiteralDomain, WordPress.WP.I18n.NonSingularStringLiteralText
 			),
 		);
 	}

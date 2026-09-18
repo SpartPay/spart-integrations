@@ -41,8 +41,8 @@ final class CartMessagingDisplayTest extends WC_Spart_IntegrationTestCase {
 		}
 
 		$this->assertStringContainsString( 'spart-messaging--cart', $output );
-		$this->assertStringContainsString( 'Spart it: pay in installments with friends.', $output );
-		$this->assertStringContainsString( 'Choose Spart at checkout to split this order.', $output );
+		$this->assertStringContainsString( 'Share your purchase.', $output );
+		$this->assertSame( 1, substr_count( $output, '<p ' ) );
 		$this->assertStringContainsString( 'aria-live="polite"', $output );
 	}
 

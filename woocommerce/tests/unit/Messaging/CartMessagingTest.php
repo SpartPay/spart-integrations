@@ -14,6 +14,14 @@ final class CartMessagingTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		Functions\when( 'is_checkout' )->justReturn( false );
+		Functions\when( 'is_admin' )->justReturn( false );
+		Functions\when( 'wp_enqueue_style' )->justReturn( null );
+		Functions\when( 'wp_enqueue_script' )->justReturn( null );
+		Functions\when( 'esc_attr__' )->returnArg();
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
 		Functions\when( 'esc_html__' )->returnArg( 1 );
 		Functions\when( 'did_action' )->justReturn( 0 );
 	}
@@ -123,7 +131,7 @@ final class CartMessagingTest extends TestCase {
 		$this->assertSame( 10, $registered[0]['priority'] );
 	}
 
-	public function test_render_returns_html_with_both_messaging_lines(): void {
+	public function test_render_has_only_the_cart_headline(): void {
 		Functions\when( 'get_option' )->justReturn( array( 'messaging_enabled_cart' => 'yes' ) );
 
 		$html = CartMessaging::render();
@@ -131,7 +139,8 @@ final class CartMessagingTest extends TestCase {
 		$this->assertStringContainsString( 'spart-messaging', $html );
 		$this->assertStringContainsString( 'spart-messaging--cart', $html );
 		$this->assertStringContainsString( 'SPART_MSG_CART_BEFORE_TOTALS_LINE_1', $html );
-		$this->assertStringContainsString( 'SPART_MSG_CART_BEFORE_TOTALS_LINE_2', $html );
+		$this->assertStringNotContainsString( 'SPART_MSG_CART_BEFORE_TOTALS_LINE_2', $html );
+		$this->assertSame( 1, substr_count( $html, '<p ' ) );
 		$this->assertStringContainsString( 'aria-live="polite"', $html );
 	}
 

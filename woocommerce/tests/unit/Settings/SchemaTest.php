@@ -22,7 +22,7 @@ final class SchemaTest extends TestCase {
 	public function test_field_count_includes_loading_settings(): void {
 		$fields = Schema::fields();
 
-		$this->assertCount( 19, $fields );
+		$this->assertCount( 17, $fields );
 	}
 
 	public function test_field_ids_match_expected_set(): void {
@@ -31,8 +31,6 @@ final class SchemaTest extends TestCase {
 		$this->assertSame(
 			array(
 				'enabled',
-				'title',
-				'description',
 				'api_key',
 				'webhook_secret',
 				'webhook_url',
@@ -64,7 +62,8 @@ final class SchemaTest extends TestCase {
 		$array = Schema::as_wc_settings_array();
 		$this->assertArrayHasKey( 'api_key', $array );
 		$this->assertSame( 'password', $array['api_key']['type'] );
-		$this->assertSame( 'text', $array['title']['type'] );
+		$this->assertArrayNotHasKey( 'title', $array );
+		$this->assertArrayNotHasKey( 'description', $array );
 		$this->assertSame( 'checkbox', $array['enabled']['type'] );
 	}
 
@@ -83,7 +82,8 @@ final class SchemaTest extends TestCase {
 
 		$this->assertSame( 'live', $sanitised['environment'] ); // clamped
 		$this->assertSame( 'yes', $sanitised['enabled'] );
-		$this->assertSame( 'Pay with Spart', $sanitised['title'] );
+		$this->assertArrayNotHasKey( 'title', $sanitised );
+		$this->assertArrayNotHasKey( 'description', $sanitised );
 		$this->assertSame( 'sk_live_xyz', $sanitised['api_key'] );
 		$this->assertSame( 'yes', $sanitised['debug_logging'] );
 	}
@@ -107,14 +107,6 @@ final class SchemaTest extends TestCase {
 	public function test_field_lookup_throws_for_unknown_id(): void {
 		$this->expectException( \InvalidArgumentException::class );
 		Schema::field( 'does_not_exist' );
-	}
-
-	public function test_description_default_uses_friends_copy(): void {
-		$description = Schema::field( 'description' );
-		$this->assertSame(
-			'Split the payment with your friends!',
-			$description->default()
-		);
 	}
 
 	public function test_messaging_toggles_default_to_no(): void {
@@ -160,7 +152,7 @@ final class SchemaTest extends TestCase {
 		// rebuilt from scratch rather than the memoised reference.
 		Schema::reset_for_tests();
 		$rebuilt = Schema::fields();
-		$this->assertCount( 19, $rebuilt );
+		$this->assertCount( 17, $rebuilt );
 		$this->assertContains( Schema::DEBUG_API_ENDPOINT_FIELD, array_map( static fn ( Field $f ) => $f->id(), $rebuilt ) );
 	}
 

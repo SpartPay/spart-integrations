@@ -12,14 +12,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../vendor/autoload.php';
 
 if ( ! defined( 'ABSPATH' ) ) {
-    define( 'ABSPATH', '/tmp/wp/' );
+    define( 'ABSPATH', dirname( __DIR__, 2 ) . '/.phpunit.cache/wp/' );
 }
 
-if ( ! is_dir( '/tmp/wp/wp-admin/includes' ) ) {
-    @mkdir( '/tmp/wp/wp-admin/includes', 0777, true );
+if ( ! is_dir( ABSPATH . 'wp-admin/includes' ) ) {
+    @mkdir( ABSPATH . 'wp-admin/includes', 0777, true );
 }
-if ( ! file_exists( '/tmp/wp/wp-admin/includes/upgrade.php' ) ) {
-    file_put_contents( '/tmp/wp/wp-admin/includes/upgrade.php', "<?php // stub for unit tests\n" );
+if ( ! file_exists( ABSPATH . 'wp-admin/includes/upgrade.php' ) ) {
+    file_put_contents( ABSPATH . 'wp-admin/includes/upgrade.php', "<?php // stub for unit tests\n" );
 }
 
 // Stub WordPress functions that Plugin::boot() calls but are not provided by

@@ -10,16 +10,49 @@ declare(strict_types=1);
 namespace Spart\WooCommerce\Tests\Unit\Messaging;
 
 use PHPUnit\Framework\TestCase;
+use Brain\Monkey;
+use Brain\Monkey\Functions;
 use Spart\WooCommerce\Messaging\MessagingRenderer;
 
 final class MessagingRendererTest extends TestCase {
+
+	protected function setUp(): void {
+		parent::setUp();
+		Monkey\setUp();
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+		Functions\when( 'esc_url' )->returnArg();
+		Functions\when( 'esc_html__' )->returnArg();
+		Functions\when( 'esc_attr__' )->returnArg();
+	}
+
+	protected function tearDown(): void {
+		Monkey\tearDown();
+		parent::tearDown();
+	}
+
+	public function test_product_has_branded_help_button_and_emphasized_headline(): void {
+		$html = MessagingRenderer::render( 'product', 'Share and split the payment.', 'No upfront payment.' );
+		$this->assertStringContainsString( '<strong>Share and split the payment.</strong>', $html );
+		$this->assertStringContainsString( 'spart-symbol.svg', $html );
+		$this->assertStringContainsString( 'spart-logo.svg', $html );
+		$this->assertStringContainsString( 'type="button"', $html );
+		$this->assertStringContainsString( 'aria-haspopup="dialog"', $html );
+		$this->assertStringContainsString( 'aria-controls="spart-explainer"', $html );
+		$this->assertStringNotContainsString( '<a ', $html );
+	}
 
 	public function test_render_produces_two_line_div_with_bem_modifier(): void {
 		$html = MessagingRenderer::render( 'cart', 'Line A', 'Line B' );
 
 		$this->assertStringContainsString( 'spart-messaging spart-messaging--cart', $html );
-		$this->assertStringContainsString( '<p class="spart-messaging__line">Line A</p>', $html );
+		$this->assertStringContainsString( '<p class="spart-messaging__line"><strong>Line A</strong></p>', $html );
 		$this->assertStringContainsString( '<p class="spart-messaging__line">Line B</p>', $html );
+	}
+
+	public function test_empty_subtitle_has_no_empty_paragraph(): void {
+		$html = MessagingRenderer::render( 'cart', 'Share your purchase.', '' );
+		$this->assertSame( 1, substr_count( $html, '<p ' ) );
 	}
 
 	public function test_render_supports_product_context(): void {
@@ -44,9 +77,9 @@ final class MessagingRendererTest extends TestCase {
 	public function test_render_returns_a_single_root_div(): void {
 		$html = MessagingRenderer::render( 'cart', 'X', 'Y' );
 
-		// One opening <div ...> tag and one closing </div>.
-		$this->assertSame( 1, substr_count( $html, '<div' ) );
-		$this->assertSame( 1, substr_count( $html, '</div>' ) );
+		$document = new \DOMDocument();
+		$document->loadHTML( $html, LIBXML_NOERROR | LIBXML_NOWARNING );
+		$this->assertSame( 1, $document->getElementsByTagName( 'body' )->item( 0 )->childNodes->length );
 	}
 
 	public function test_render_strips_invalid_class_characters_from_context(): void {

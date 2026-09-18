@@ -21,6 +21,71 @@ use Spart\WooCommerce\Settings\Schema;
  */
 final class WC_Gateway_SpartTest extends TestCase {
 
+	public function test_gateway_title_and_icon_honor_public_woocommerce_filters(): void {
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		Monkey\Functions\when( 'esc_url' )->returnArg();
+		Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+		Monkey\Functions\expect( 'apply_filters' )->once()
+			->with( 'woocommerce_gateway_title', 'SPART_CHECKOUT_TITLE', 'spart' )->andReturn( 'Filtered title' );
+		Monkey\Functions\expect( 'apply_filters' )->once()
+			->with(
+				'woocommerce_gateway_icon',
+				'<img class="spart-checkout-logo" src="https://shop.example/assets/images/spart-logo.svg" alt="SPART!" width="74" height="15">',
+				'spart'
+			)->andReturn( '<img alt="Filtered icon">' );
+		$gateway = new WC_Gateway_Spart();
+		$this->assertSame( 'Filtered title', $gateway->get_title() );
+		$this->assertSame( '<img alt="Filtered icon">', $gateway->get_icon() );
+	}
+
+	public function test_settings_save_preserves_legacy_copy_verbatim_instead_of_accepting_post_edits(): void {
+		$saved = array(
+			'title'       => '  Legacy & title  ',
+			'description' => '<p>Legacy description</p>',
+		);
+		Monkey\Functions\when( 'get_option' )->justReturn( $saved );
+		$gateway = new WC_Gateway_Spart();
+		$result  = $gateway->enforce_schema_invariants(
+			array(
+				'title'       => 'Tampered',
+				'description' => 'Tampered',
+			)
+		);
+		$this->assertSame( $saved['title'], $result['title'] );
+		$this->assertSame( $saved['description'], $result['description'] );
+		$result = $gateway->enforce_schema_invariants( array() );
+		$this->assertSame( $saved['title'], $result['title'] );
+		$this->assertSame( $saved['description'], $result['description'] );
+	}
+
+	public function test_settings_save_does_not_create_legacy_copy_keys_on_fresh_installs(): void {
+		$gateway = new WC_Gateway_Spart();
+		$result  = $gateway->enforce_schema_invariants(
+			array(
+				'title'       => 'Tampered',
+				'description' => 'Tampered',
+			)
+		);
+		$this->assertArrayNotHasKey( 'title', $result );
+		$this->assertArrayNotHasKey( 'description', $result );
+	}
+
+	public function test_gateway_title_is_plain_for_order_storage_and_checkout_has_only_wordmark(): void {
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		Monkey\Functions\when( 'esc_html__' )->returnArg();
+		Monkey\Functions\when( 'esc_url' )->returnArg();
+		Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
+		$gateway = new WC_Gateway_Spart();
+		$this->assertTrue( method_exists( $gateway, 'get_title' ), 'Gateway must provide the storefront checkout title.' );
+		$this->assertSame( 'SPART_CHECKOUT_TITLE', $gateway->get_title() );
+		$this->assertStringContainsString( 'spart-logo.svg', $gateway->get_icon() );
+		$gateway->description = 'Old merchant description';
+		ob_start();
+		$gateway->payment_fields();
+		$this->assertSame( '', ob_get_clean() );
+		$this->assertSame( '', $gateway->get_description() );
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
