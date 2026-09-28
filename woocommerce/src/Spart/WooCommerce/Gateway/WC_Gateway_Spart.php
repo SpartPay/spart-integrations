@@ -60,6 +60,8 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 		$this->method_description = __( 'Let customers split their payment into multiple parts via Spart.', 'spart-woocommerce' );
 		$this->has_fields         = false;
 		$this->supports           = array( 'products' );
+		// WooCommerce admin Payments settings reads this; checkout uses get_icon().
+		$this->icon = plugins_url( 'assets/images/spart-icon.svg', Plugin::plugin_file() );
 
 		$this->init_form_fields();
 		$this->init_settings();

@@ -26,6 +26,8 @@ final class LoadingScreenTest extends TestCase {
 
 	protected function setUp(): void {
 		Monkey\setUp();
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
 		Schema::reset_for_tests();
 		Functions\when( 'get_option' )->justReturn( array() );
 		Functions\when( 'esc_html' )->returnArg();

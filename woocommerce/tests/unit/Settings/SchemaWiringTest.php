@@ -12,6 +12,8 @@ final class SchemaWiringTest extends TestCase {
 
 	protected function setUp(): void {
 		\Brain\Monkey\setUp();
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		\Brain\Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
 		Schema::reset_for_tests();
 		\Brain\Monkey\Functions\when( 'get_option' )->justReturn( array() );
 		\Brain\Monkey\Functions\when( 'esc_html' )->returnArg();
