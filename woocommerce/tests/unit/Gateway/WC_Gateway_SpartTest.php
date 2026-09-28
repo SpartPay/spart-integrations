@@ -86,9 +86,16 @@ final class WC_Gateway_SpartTest extends TestCase {
 		$this->assertSame( '', $gateway->get_description() );
 	}
 
+	public function test_admin_settings_icon_is_spart_icon(): void {
+		$gateway = new WC_Gateway_Spart();
+		$this->assertStringEndsWith( 'assets/images/spart-icon.svg', $gateway->icon );
+	}
+
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
+		\Spart\WooCommerce\Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
+		Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
 		Schema::reset_for_tests();
 		// Stub WP functions called by the constructor + per-field validators.
 		Monkey\Functions\when( 'home_url' )->alias( static fn ( $path = '' ) => 'http://localhost' . (string) $path );

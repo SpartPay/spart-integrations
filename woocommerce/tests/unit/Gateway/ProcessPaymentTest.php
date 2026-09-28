@@ -31,7 +31,9 @@ final class ProcessPaymentTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
+		Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
 		Plugin::reset_for_tests();
+		Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
 		Monkey\Functions\when( 'home_url' )->justReturn( 'https://shop.example/' );
 		Monkey\Functions\when( 'rest_url' )->alias(
 			static fn ( $path = '' ) => 'https://shop.example/wp-json/' . ltrim( (string) $path, '/' )

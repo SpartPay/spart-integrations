@@ -8,6 +8,11 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Spart icon in WooCommerce Payments settings.** The gateway now sets its
+  `icon` to a green-S-on-black Spart icon, so **Settings > Payments** shows it
+  instead of WooCommerce's generic placeholder. Checkout still shows the
+  wordmark.
+
 - **Shopper language sent to Spart.** When creating a checkout intent, the
   plugin now sends the current site/shopper language (via WordPress's
   `determine_locale()`, falling back to `get_locale()`) so Spart can localise

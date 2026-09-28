@@ -25,7 +25,9 @@ final class WC_Gateway_Spart_IsAvailableTest extends TestCase {
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
+		Monkey\Functions\when( 'plugins_url' )->alias( static fn( $path ) => 'https://shop.example/' . $path );
 		Plugin::reset_for_tests();
+		Plugin::set_plugin_file_for_tests( '/plugin/spart-woocommerce.php' );
 		Schema::reset_for_tests();
 
 		// Constructor-time stubs (same set as WC_Gateway_SpartTest::setUp).
