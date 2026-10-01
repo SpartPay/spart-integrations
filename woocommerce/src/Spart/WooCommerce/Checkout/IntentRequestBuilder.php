@@ -37,6 +37,10 @@ final class IntentRequestBuilder {
 
 	private const LINE_ITEM_IMAGE_SIZE = 'medium';
 
+	private const LOCALE_PATTERN = '/^[a-z]{2,3}([_-][A-Za-z0-9]{2,8})*$/';
+
+	private const MAX_LOCALE_LENGTH = 35;
+
 	/**
 	 * Constructor.
 	 *
@@ -55,11 +59,12 @@ final class IntentRequestBuilder {
 	 * Build the SDK request from a WooCommerce order.
 	 *
 	 * @param \WC_Order         $order    The WooCommerce order.
-	 * @param SessionIdComposer $sessions Composer used to derive the Spart session ID.
+	 * @param SessionIdComposer $sessions         Composer used to derive the Spart session ID.
+	 * @param string|null       $requested_locale Locale captured when the checkout page rendered.
 	 * @return CreateIntentRequest
 	 * @throws FreeOrderException When the order total is zero or negative.
 	 */
-	public function build( \WC_Order $order, SessionIdComposer $sessions ): CreateIntentRequest {
+	public function build( \WC_Order $order, SessionIdComposer $sessions, ?string $requested_locale = null ): CreateIntentRequest {
 		$total_lexeme = $this->normalise_amount_lexeme( (string) $order->get_total() );
 
 		if ( ! $this->is_positive( $total_lexeme ) ) {
@@ -94,14 +99,15 @@ final class IntentRequestBuilder {
 			sparter: $contact,
 			sessionId: $sessions->compose( (int) $order->get_id() ),
 			options: $options,
-			desiredLanguage: $this->resolve_desired_language(),
+			desiredLanguage: $this->resolve_desired_language( $requested_locale ),
 		);
 	}
 
 	/**
-	 * Resolve the shopper's UI language for the current request.
+	 * Resolve the shopper's UI language.
 	 *
-	 * Prefers WordPress's canonical determine_locale() — it reflects the
+	 * A valid checkout-page locale wins; the checkout request has no page
+	 * context. Otherwise prefers determine_locale() — it reflects the
 	 * visitor/site locale and applies the `determine_locale` filter that
 	 * WPML, Polylang, and WooCommerce hook — then falls back to get_locale(),
 	 * and finally to null when neither yields a value (WP-CLI, REST, unit
@@ -109,9 +115,14 @@ final class IntentRequestBuilder {
 	 * verbatim; the Spart server normalises it and ignores unsupported values,
 	 * so a bad or missing locale never blocks checkout.
 	 *
+	 * @param string|null $requested_locale Locale captured on the checkout page.
 	 * @return string|null The locale string, or null when none is available.
 	 */
-	private function resolve_desired_language(): ?string {
+	private function resolve_desired_language( ?string $requested_locale ): ?string {
+		$requested = trim( (string) $requested_locale );
+		if ( strlen( $requested ) <= self::MAX_LOCALE_LENGTH && 1 === preg_match( self::LOCALE_PATTERN, $requested ) ) {
+			return $requested;
+		}
 		$locale = '';
 		if ( function_exists( 'determine_locale' ) ) {
 			$locale = trim( (string) \determine_locale() );

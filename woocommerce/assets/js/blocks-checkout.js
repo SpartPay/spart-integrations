@@ -42,6 +42,18 @@
 		var status = props.checkoutStatus || {};
 		var payment = props.paymentStatus || {};
 		var onCheckoutFail = props.eventRegistration && props.eventRegistration.onCheckoutFail;
+		var onPaymentSetup = props.eventRegistration && props.eventRegistration.onPaymentSetup;
+		var locale = settings.locale || '';
+
+		// The Store API request has no page context, so send the page's locale with it.
+		wp.element.useEffect( function () {
+			if ( ! onPaymentSetup || ! locale ) {
+				return;
+			}
+			return onPaymentSetup( function () {
+				return { type: 'success', meta: { paymentMethodData: { spart_locale: locale } } };
+			} );
+		}, [ onPaymentSetup, locale ] );
 
 		wp.element.useEffect( function () {
 			if ( ! overlay ) {

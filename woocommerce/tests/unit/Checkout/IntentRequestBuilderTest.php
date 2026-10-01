@@ -303,6 +303,62 @@ final class IntentRequestBuilderTest extends TestCase {
 		$this->assertNull( $req->desiredLanguage );
 	}
 
+	public function test_requested_locale_overrides_request_locale(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( 'en_US' );
+
+		$req = ( new IntentRequestBuilder( 15 ) )->build( $this->locale_order(), new SessionIdComposer( 'a1b2c3d4' ), 'it_IT' );
+
+		$this->assertSame( 'it_IT', $req->desiredLanguage );
+	}
+
+	/**
+	 * @dataProvider invalid_requested_locales
+	 */
+	public function test_invalid_requested_locale_falls_back_to_request_locale( string $requested ): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( 'fr_FR' );
+
+		$req = ( new IntentRequestBuilder( 15 ) )->build( $this->locale_order(), new SessionIdComposer( 'a1b2c3d4' ), $requested );
+
+		$this->assertSame( 'fr_FR', $req->desiredLanguage );
+	}
+
+	/**
+	 * @return array<string, array{0: string}>
+	 */
+	public static function invalid_requested_locales(): array {
+		return array(
+			'blank'      => array( '' ),
+			'whitespace' => array( '   ' ),
+			'markup'     => array( '<script>' ),
+			'too long'   => array( 'it_' . str_repeat( 'A', 40 ) ),
+		);
+	}
+
+	public function test_null_requested_locale_falls_back_to_request_locale(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( 'fr_FR' );
+
+		$req = ( new IntentRequestBuilder( 15 ) )->build( $this->locale_order(), new SessionIdComposer( 'a1b2c3d4' ), null );
+
+		$this->assertSame( 'fr_FR', $req->desiredLanguage );
+	}
+
+	private function locale_order(): \WC_Order {
+		return $this->make_order(
+			array(
+				'id'       => 5,
+				'currency' => 'EUR',
+				'total'    => '10.00',
+				'email'    => 'a@b.com',
+				'items'    => array(
+					array(
+						'name' => 'Item',
+						'qty'  => 1,
+					),
+				),
+			)
+		);
+	}
+
 	/**
 	 * @param array<string, mixed> $data
 	 */

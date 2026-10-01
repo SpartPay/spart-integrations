@@ -41,9 +41,12 @@ final class ProcessPaymentTest extends TestCase {
 		Monkey\Functions\when( 'wc_get_logger' )->justReturn( new \stdClass() );
 		Monkey\Functions\when( 'get_option' )->justReturn( array() );
 		Monkey\Functions\when( 'esc_html' )->returnArg();
+		Monkey\Functions\when( 'wp_unslash' )->returnArg();
+		Monkey\Functions\when( 'sanitize_text_field' )->returnArg();
 	}
 
 	protected function tearDown(): void {
+		unset( $_POST[ WC_Gateway_Spart::LOCALE_FIELD ] );
 		Plugin::reset_for_tests();
 		Mockery::close();
 		Monkey\tearDown();
@@ -57,7 +60,7 @@ final class ProcessPaymentTest extends TestCase {
 
 		$session = Mockery::mock( CheckoutSession::class );
 		$session->shouldReceive( 'checkout' )
-			->with( $order, Mockery::type( 'string' ) )
+			->with( $order, Mockery::type( 'string' ), null )
 			->andReturn( CheckoutResult::success( 'https://pay.spart/abc', 'abc' ) );
 
 		$this->inject_session( $session );
@@ -69,6 +72,24 @@ final class ProcessPaymentTest extends TestCase {
 		$this->assertSame( 'https://pay.spart/abc', $out['redirect'] );
 	}
 
+	public function test_forwards_checkout_page_locale_from_post(): void {
+		$order = $this->order( 42 );
+		Monkey\Functions\when( 'wc_get_order' )->justReturn( $order );
+		$_POST[ WC_Gateway_Spart::LOCALE_FIELD ] = 'it_IT';
+
+		$session = Mockery::mock( CheckoutSession::class );
+		$session->shouldReceive( 'checkout' )
+			->once()
+			->with( $order, Mockery::type( 'string' ), 'it_IT' )
+			->andReturn( CheckoutResult::success( 'https://pay.spart/abc', 'abc' ) );
+
+		$this->inject_session( $session );
+
+		$out = ( new WC_Gateway_Spart() )->process_payment( 42 );
+
+		$this->assertSame( 'success', $out['result'] );
+	}
+
 	public function test_success_logs_pre_gateway_gateway_and_request_timings(): void {
 		$order = $this->order( 88 );
 		Monkey\Functions\when( 'wc_get_order' )->justReturn( $order );
@@ -76,7 +97,7 @@ final class ProcessPaymentTest extends TestCase {
 
 		$session = Mockery::mock( CheckoutSession::class );
 		$session->shouldReceive( 'checkout' )
-			->with( $order, 'corr-gateway-timing' )
+			->with( $order, 'corr-gateway-timing', null )
 			->andReturn( CheckoutResult::success( 'https://pay.spart/timing', 'timing' ) );
 		$this->inject_session( $session );
 
@@ -157,7 +178,7 @@ final class ProcessPaymentTest extends TestCase {
 
 		$session = Mockery::mock( CheckoutSession::class );
 		$session->shouldReceive( 'checkout' )
-			->with( $order, Mockery::type( 'string' ) )
+			->with( $order, Mockery::type( 'string' ), null )
 			->andReturn( CheckoutResult::failure( 'We could not start your payment.' ) );
 
 		$this->inject_session( $session );
@@ -201,7 +222,7 @@ final class ProcessPaymentTest extends TestCase {
 
 		$session = Mockery::mock( CheckoutSession::class );
 		$session->shouldReceive( 'checkout' )
-			->with( $order, 'corr-uuid-13' )
+			->with( $order, 'corr-uuid-13', null )
 			->andReturn( CheckoutResult::failure( 'No.', 'log.', FailureCode::TIMEOUT ) );
 		$this->inject_session( $session );
 
@@ -225,7 +246,7 @@ final class ProcessPaymentTest extends TestCase {
 
 		$session = Mockery::mock( CheckoutSession::class );
 		$session->shouldReceive( 'checkout' )
-			->with( $order, 'corr-uuid-14' )
+			->with( $order, 'corr-uuid-14', null )
 			->andReturn( CheckoutResult::success( 'https://pay.spart/x', 'x' ) );
 		$this->inject_session( $session );
 

@@ -406,6 +406,21 @@ final class PluginTest extends TestCase {
 	}
 
 	/**
+	 * Classic checkout posts the page locale via a hidden field rendered once with the page.
+	 *
+	 * @return void
+	 */
+	public function test_on_plugins_loaded_registers_classic_checkout_locale_field(): void {
+		Actions\expectAdded( 'woocommerce_checkout_after_customer_details' )
+			->once()
+			->with( array( \Spart\WooCommerce\Gateway\WC_Gateway_Spart::class, 'render_locale_field' ) );
+
+		Plugin::on_plugins_loaded();
+
+		$this->addToAssertionCount( 1 );
+	}
+
+	/**
 	 * The closure registered on woocommerce_thankyou_spart instantiates a
 	 * ThankYouRenderer and invokes render() with the order ID cast to int.
 	 *

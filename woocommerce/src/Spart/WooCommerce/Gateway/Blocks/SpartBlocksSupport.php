@@ -119,6 +119,7 @@ final class SpartBlocksSupport extends AbstractPaymentMethodType {
 		$settings                = is_array( $this->settings ) ? $this->settings : array();
 		$settings['title']       = apply_filters( 'woocommerce_gateway_title', __( 'SPART_CHECKOUT_TITLE', 'spart-woocommerce' ), WC_Gateway_Spart::GATEWAY_ID );
 		$settings['description'] = '';
-		return $this->builder->build( $settings, $this->assets_url );
+		$locale                  = function_exists( 'determine_locale' ) ? (string) \determine_locale() : '';
+		return $this->builder->build( $settings, $this->assets_url, $locale );
 	}
 }

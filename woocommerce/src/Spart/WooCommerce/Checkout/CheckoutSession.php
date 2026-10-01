@@ -95,13 +95,14 @@ class CheckoutSession {
 	/**
 	 * Convert a WooCommerce order into a Spart checkout intent.
 	 *
-	 * @param \WC_Order $order          The order to check out.
-	 * @param string    $correlation_id UUIDv4 the gateway generated to correlate
-	 *                                  all log lines for this checkout attempt.
+	 * @param \WC_Order   $order          The order to check out.
+	 * @param string      $correlation_id UUIDv4 the gateway generated to correlate
+	 *                                    all log lines for this checkout attempt.
+	 * @param string|null $locale       Locale of the checkout page the shopper saw, if known.
 	 * @return CheckoutResult Either a success(redirect_url, intent_short_id)
 	 *                         or a failure(customer_message, log_message, failure_code).
 	 */
-	public function checkout( \WC_Order $order, string $correlation_id ): CheckoutResult {
+	public function checkout( \WC_Order $order, string $correlation_id, ?string $locale = null ): CheckoutResult {
 		$api_key            = $this->client_factory->api_key();
 		$base_context       = array(
 			'correlation_id' => $correlation_id,
@@ -117,7 +118,7 @@ class CheckoutSession {
 			$stage_started_at = ElapsedTime::start();
 			try {
 				$sessions = new SessionIdComposer( $this->site_token() );
-				$request  = $this->request_builder->build( $order, $sessions );
+				$request  = $this->request_builder->build( $order, $sessions, $locale );
 			} finally {
 				$timings['request_build_ms'] = ElapsedTime::milliseconds_since( $stage_started_at );
 			}
