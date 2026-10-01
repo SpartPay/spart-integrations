@@ -207,6 +207,7 @@ versions follow [Semantic Versioning](https://semver.org/).
 ### Fixed
 
 - Intents now use the checkout page's language instead of the site default.
+- Checkout loading popup and settings strings are now translated in Italian.
 - Settings page now correctly persists edits to all gateway fields. The previous `process_admin_options()` override read the WC form as a single nested array (`$_POST['woocommerce_spart_settings']`), but WooCommerce posts each field as a flat top-level key (`woocommerce_spart_<field_id>`). The override has been removed; the gateway now delegates to WooCommerce's parent implementation and exposes a `validate_password_field()` override that preserves stored secrets across saves.
 
 ## 0.5.0 — 2026-05-15

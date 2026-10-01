@@ -79,3 +79,60 @@ msgstr "Un solo ordine, spedizione unica"
 
 msgid "SPART_DIALOG_FOOTER"
 msgstr "Il negozio riceve un unico ordine mentre ogni partecipante completa il proprio pagamento separatamente tramite SPART!"
+
+msgid "SPART_MSG_CART_BEFORE_TOTALS_LINE_2"
+msgstr "Scegli Spart al checkout per dividere questo ordine."
+
+msgid "SPART_SETTINGS_MESSAGING_PRODUCT_TITLE"
+msgstr "Messaggi nella pagina prodotto"
+
+msgid "SPART_SETTINGS_MESSAGING_PRODUCT_LABEL"
+msgstr "Mostra i messaggi Spart nelle pagine dei singoli prodotti"
+
+msgid "SPART_SETTINGS_MESSAGING_CART_TITLE"
+msgstr "Messaggi nella pagina carrello"
+
+msgid "SPART_SETTINGS_MESSAGING_CART_LABEL"
+msgstr "Mostra i messaggi Spart nella pagina del carrello"
+
+msgid "SPART_SETTINGS_LOADING_TITLE"
+msgstr "Schermata di caricamento del checkout"
+
+msgid "SPART_SETTINGS_LOADING_ENABLED"
+msgstr "Abilita la schermata di caricamento del checkout"
+
+msgid "SPART_SETTINGS_LOADING_ENABLED_HELP"
+msgstr "Disattivala se il tuo tema mostra già un indicatore di caricamento quando si effettua un ordine."
+
+msgid "SPART_SETTINGS_LOADING_COLOR"
+msgstr "Colore dello sfondo (esadecimale a sei cifre)"
+
+msgid "SPART_SETTINGS_LOADING_OPACITY"
+msgstr "Opacità dello sfondo (%)"
+
+msgid "SPART_SETTINGS_LOADING_IMAGE"
+msgstr "Immagine di caricamento"
+
+msgid "SPART_SETTINGS_LOADING_IMAGE_HELP"
+msgstr "Scegli un'immagine raster dalla Libreria media. Le immagini animate sono supportate; SVG no. Rimuovila per usare l'indicatore predefinito (ID 0). I clienti che preferiscono ridurre le animazioni vedono sempre l'indicatore predefinito statico."
+
+msgid "SPART_LOADING_TITLE"
+msgstr "Connessione a Spart in corso..."
+
+msgid "SPART_LOADING_DESCRIPTION"
+msgstr "Attendi mentre prepariamo il tuo checkout."
+
+msgid "SPART_LOADING_CHOOSE_IMAGE"
+msgstr "Scegli immagine"
+
+msgid "SPART_LOADING_CLEAR_IMAGE"
+msgstr "Rimuovi immagine"
+
+msgid "SPART_LOADING_PREVIEW"
+msgstr "Anteprima della schermata di caricamento"
+
+msgid "SPART_LOADING_CLOSE"
+msgstr "Chiudi anteprima"
+
+msgid "SPART_LOADING_INVALID_IMAGE"
+msgstr "Scegli un'immagine raster supportata, non SVG."
