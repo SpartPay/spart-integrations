@@ -470,7 +470,17 @@ final class CheckoutSessionTest extends TestCase {
 	 * Drives a successful checkout through a real IntentRequestBuilder so the
 	 * locale resolution under test is the production one.
 	 */
-	private function run_successful_checkout( SpartLoggerInterface $logger ): void {
+	public function test_checkout_page_locale_overrides_request_locale(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( 'en_US' );
+
+		$logger = new RecordingSpartLogger();
+		$this->run_successful_checkout( $logger, 'it_IT' );
+
+		$created = $logger->calls_for_event( LogEvents::INTENT_CREATED );
+		$this->assertSame( 'it_IT', $created[0]['context']['desired_language'] ?? null );
+	}
+
+	private function run_successful_checkout( SpartLoggerInterface $logger, ?string $locale = null ): void {
 		$body = (string) wp_json_encode(
 			array(
 				'isSuccessful' => true,
@@ -487,7 +497,7 @@ final class CheckoutSessionTest extends TestCase {
 		$factory->shouldReceive( 'create' )->andReturn( $this->make_real_client_returning( 201, $body ) );
 
 		$session = new CheckoutSession( $factory, new IntentRequestBuilder( 10080 ), $logger );
-		$result  = $session->checkout( $this->make_order(), 'corr-lang' );
+		$result  = $session->checkout( $this->make_order(), 'corr-lang', $locale );
 
 		$this->assertTrue( $result->is_success() );
 	}

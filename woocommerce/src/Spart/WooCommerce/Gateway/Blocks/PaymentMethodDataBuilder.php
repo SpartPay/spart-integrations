@@ -26,14 +26,16 @@ class PaymentMethodDataBuilder {
 	 * @param string               $assets_url URL prefix for assets/. A
 	 *                                        trailing slash is added if
 	 *                                        missing.
-	 * @return array{title:string,description:string,logoUrl:string,supports:list<string>}
+	 * @param string               $locale    Locale the checkout page renders in.
+	 * @return array{title:string,description:string,logoUrl:string,supports:list<string>,locale:string}
 	 */
-	public function build( array $settings, string $assets_url ): array {
+	public function build( array $settings, string $assets_url, string $locale = '' ): array {
 		return array(
 			'title'       => (string) ( $settings['title'] ?? '' ),
 			'description' => (string) ( $settings['description'] ?? '' ),
 			'logoUrl'     => rtrim( $assets_url, '/' ) . '/images/spart-logo.svg',
 			'supports'    => array( 'products' ),
+			'locale'      => $locale,
 		);
 	}
 }

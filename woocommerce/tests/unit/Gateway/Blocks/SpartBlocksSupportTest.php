@@ -24,10 +24,12 @@ final class SpartBlocksSupportTest extends TestCase {
 
 	private const ASSETS_URL = 'https://example.com/wp-content/plugins/spart-woocommerce/assets/';
 	private const VERSION    = '0.4.0';
+	private const LOCALE     = 'it_IT';
 
 	protected function setUp(): void {
 		parent::setUp();
 		Monkey\setUp();
+		Functions\when( 'determine_locale' )->justReturn( self::LOCALE );
 	}
 
 	protected function tearDown(): void {
@@ -53,6 +55,7 @@ final class SpartBlocksSupportTest extends TestCase {
 		$this->assertSame( 'Filtered title', $data['title'] );
 		$this->assertSame( '', $data['description'] );
 		$this->assertSame( self::ASSETS_URL . 'images/spart-logo.svg', $data['logoUrl'] );
+		$this->assertSame( self::LOCALE, $data['locale'] );
 	}
 
 	public function test_name_is_spart_gateway_id(): void {
@@ -142,7 +145,8 @@ final class SpartBlocksSupportTest extends TestCase {
 							&& ( $arg['enabled'] ?? null ) === 'yes';
 					}
 				),
-				self::ASSETS_URL
+				self::ASSETS_URL,
+				self::LOCALE
 			)
 			->andReturn( array( 'sentinel' => 1 ) );
 
@@ -175,7 +179,8 @@ final class SpartBlocksSupportTest extends TestCase {
 							&& ( $arg['description'] ?? null ) === '';
 					}
 				),
-				self::ASSETS_URL
+				self::ASSETS_URL,
+				self::LOCALE
 			)
 			->andReturn( array() );
 
@@ -196,7 +201,8 @@ final class SpartBlocksSupportTest extends TestCase {
 					'title'       => 'SPART_CHECKOUT_TITLE',
 					'description' => '',
 				),
-				self::ASSETS_URL
+				self::ASSETS_URL,
+				self::LOCALE
 			)
 			->andReturn( array( 'fallback' => true ) );
 

@@ -38,14 +38,13 @@ final class StorefrontCatalogTest extends TestCase {
 		$this->assertSame( 'Nessun anticipo.', $messages['SPART_MSG_PRODUCT_BEFORE_PRICE_LINE_2'] );
 		$this->assertSame( 'Condividi la tua spesa.', $messages['SPART_MSG_CART_BEFORE_TOTALS_LINE_1'] );
 		$this->assertSame( 'Condividi la tua spesa senza anticipare', $messages['SPART_CHECKOUT_TITLE'] );
+		$this->assertSame( 'Connessione a Spart in corso...', $messages['SPART_LOADING_TITLE'] );
 		$this->assertSame(
 			"Appena tutti avranno pagato, l'ordine sarà sbloccato. Se non pagano tutti, non ti verrà addebitato nulla sulla tua carta.",
 			sprintf( $messages['SPART_DIALOG_UNLOCK_BODY'], $messages['SPART_DIALOG_NO_CHARGE'] )
 		);
 		foreach ( Strings::CODES as $code => $english ) {
-			if ( str_starts_with( $code, 'SPART_DIALOG_' ) ) {
-				$this->assertNotEmpty( $messages[ $code ] ?? '', $code );
-			}
+			$this->assertNotEmpty( $messages[ $code ] ?? '', $code );
 			$this->assertSame( $english, GettextFilter::filter( $code, $code, Strings::TEXT_DOMAIN ) );
 		}
 		$this->assertSame( 'Traduzione personalizzata', GettextFilter::filter( 'Traduzione personalizzata', 'SPART_CHECKOUT_TITLE', Strings::TEXT_DOMAIN ) );

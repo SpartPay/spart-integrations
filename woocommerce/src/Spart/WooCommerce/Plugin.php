@@ -277,6 +277,11 @@ final class Plugin {
 		);
 
 		\add_action(
+			'woocommerce_checkout_after_customer_details',
+			array( Gateway\WC_Gateway_Spart::class, 'render_locale_field' )
+		);
+
+		\add_action(
 			'woocommerce_thankyou_spart',
 			static function ( $order_id ): void {
 				( new Checkout\ThankYouRenderer() )->render( (int) $order_id );

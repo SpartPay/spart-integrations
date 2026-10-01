@@ -32,6 +32,9 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 
 	public const GATEWAY_ID = 'spart';
 
+	/** Checkout field carrying the locale the shopper's checkout page rendered in. */
+	public const LOCALE_FIELD = 'spart_locale';
+
 	/** Keep markup out of the persisted payment title. */
 	public function get_title(): string {
 		return apply_filters( 'woocommerce_gateway_title', __( 'SPART_CHECKOUT_TITLE', 'spart-woocommerce' ), $this->id );
@@ -50,6 +53,15 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 
 	/** Leave the payment selector to WooCommerce. */
 	public function payment_fields(): void {}
+
+	/**
+	 * Echo the checkout page's locale so classic checkout posts it with the order.
+	 *
+	 * Rendered with the page, not the order-review AJAX, which has no page context.
+	 */
+	public static function render_locale_field(): void {
+		echo '<input type="hidden" name="' . esc_attr( self::LOCALE_FIELD ) . '" value="' . esc_attr( (string) determine_locale() ) . '" />';
+	}
 
 	/**
 	 * Initialises gateway properties and hooks.
@@ -564,7 +576,7 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 			array_merge( $base_context, array( 'event' => LogEvents::CHECKOUT_STARTED ) )
 		);
 
-		$result = Plugin::checkout_session()->checkout( $order, $correlation_id );
+		$result = Plugin::checkout_session()->checkout( $order, $correlation_id, self::checkout_page_locale() );
 
 		if ( ! $result->is_success() ) {
 			Plugin::order_disposer()->dispose( $order, $result, $correlation_id );
@@ -628,5 +640,17 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 	private function environment_for_logs(): string {
 		$settings = (array) \get_option( 'woocommerce_spart_settings', array() );
 		return (string) ( $settings['environment'] ?? 'live' );
+	}
+
+	/**
+	 * Locale posted by the checkout page; determine_locale() in the checkout request returns the site default.
+	 */
+	private static function checkout_page_locale(): ?string {
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before process_payment.
+		if ( ! isset( $_POST[ self::LOCALE_FIELD ] ) ) {
+			return null;
+		}
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- WooCommerce verifies the checkout nonce before process_payment.
+		return sanitize_text_field( wp_unslash( (string) $_POST[ self::LOCALE_FIELD ] ) );
 	}
 }

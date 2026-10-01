@@ -318,7 +318,7 @@ test( 'classic matches a protocol-relative custom endpoint after jQuery normaliz
 	assert.equal( overlay.isVisible(), false );
 } );
 
-async function blocks( t, enabled = true ) {
+async function blocks( t, enabled = true, settings = { description: 'Spart description' } ) {
 	const p = page( t );
 	let registration;
 	const callbacks = new Set();
@@ -329,7 +329,7 @@ async function blocks( t, enabled = true ) {
 	p.window.wp = { element: React, htmlEntities: { decodeEntities: ( s ) => s }, i18n: { __: ( s ) => s } };
 	p.window.wc = {
 		wcBlocksRegistry: { registerPaymentMethod( value ) { registration = value; } },
-		wcSettings: { getSetting: () => ( { description: 'Spart description' } ) },
+		wcSettings: { getSetting: () => settings },
 	};
 	if ( ! enabled ) delete p.window.spartCheckoutLoading;
 	load( p.window, 'blocks-checkout.js' );
@@ -416,4 +416,26 @@ test( 'Blocks with loading disabled renders no description and registers no load
 	assert.equal( document.querySelector( 'main' ).textContent, '' );
 	assert.equal( callbacks.size, 0 );
 	assert.equal( document.querySelector( 'dialog' ), null );
+} );
+
+test( 'Blocks sends the checkout page locale with the payment data and unsubscribes on unmount', async ( t ) => {
+	const { render, root } = await blocks( t, true, { locale: 'it_IT' } );
+	const setups = new Set();
+	const onPaymentSetup = ( callback ) => {
+		setups.add( callback );
+		return () => setups.delete( callback );
+	};
+	await render( 'idle', { eventRegistration: { onCheckoutFail: () => () => {}, onPaymentSetup } } );
+	assert.equal( setups.size, 1 );
+	const [ setup ] = setups;
+	assert.deepEqual( JSON.parse( JSON.stringify( setup() ) ), { type: 'success', meta: { paymentMethodData: { spart_locale: 'it_IT' } } } );
+	await act( () => root.unmount() );
+	assert.equal( setups.size, 0 );
+} );
+
+test( 'Blocks without a locale setting registers no payment setup observer', async ( t ) => {
+	const { render } = await blocks( t );
+	const setups = new Set();
+	await render( 'idle', { eventRegistration: { onCheckoutFail: () => () => {}, onPaymentSetup: ( cb ) => { setups.add( cb ); return () => {}; } } } );
+	assert.equal( setups.size, 0 );
 } );

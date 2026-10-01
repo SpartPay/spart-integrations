@@ -29,6 +29,13 @@ final class PaymentMethodDataBuilderTest extends TestCase {
 			$payload['logoUrl']
 		);
 		$this->assertSame( array( 'products' ), $payload['supports'] );
+		$this->assertSame( '', $payload['locale'] );
+	}
+
+	public function test_build_exposes_checkout_page_locale(): void {
+		$payload = ( new PaymentMethodDataBuilder() )->build( array(), self::ASSETS_URL, 'it_IT' );
+
+		$this->assertSame( 'it_IT', $payload['locale'] );
 	}
 
 	public function test_build_threads_merchant_overrides_verbatim(): void {

@@ -38,6 +38,16 @@ final class WC_Gateway_SpartTest extends TestCase {
 		$this->assertSame( '<img alt="Filtered icon">', $gateway->get_icon() );
 	}
 
+	public function test_render_locale_field_outputs_checkout_page_locale_as_hidden_input(): void {
+		Monkey\Functions\when( 'determine_locale' )->justReturn( 'it_IT' );
+
+		ob_start();
+		WC_Gateway_Spart::render_locale_field();
+		$output = (string) ob_get_clean();
+
+		$this->assertSame( '<input type="hidden" name="' . WC_Gateway_Spart::LOCALE_FIELD . '" value="it_IT" />', $output );
+	}
+
 	public function test_settings_save_preserves_legacy_copy_verbatim_instead_of_accepting_post_edits(): void {
 		$saved = array(
 			'title'       => '  Legacy & title  ',
