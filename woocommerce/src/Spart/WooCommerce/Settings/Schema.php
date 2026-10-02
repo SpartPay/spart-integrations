@@ -89,18 +89,10 @@ final class Schema {
 	/** Settings field id: minutes component of the checkout window. */
 	public const FIELD_WINDOW_MINUTES = 'default_order_window_minutes';
 
-	/**
-	 * Default intent expiration in minutes: how long a Spart payment intent
-	 * stays open for the shopper before Spart expires it. Also the fallback
-	 * read by {@see Plugin::checkout_session()} when the option is missing.
-	 */
+	/** Default intent expiration in minutes; also the fallback in {@see Plugin::checkout_session()}. */
 	public const DEFAULT_INTENT_EXPIRATION_MINUTES = 15;
 
-	/**
-	 * Minimum intent expiration in minutes. Enforced on save by
-	 * {@see WC_Gateway_Spart::resolve_intent_expiration()} and defensively by
-	 * {@see IntentRequestBuilder}.
-	 */
+	/** Minimum intent expiration in minutes; enforced on save and in {@see IntentRequestBuilder}. */
 	public const MIN_INTENT_EXPIRATION_MINUTES = 1;
 
 	/** Settings field id: intent expiration in minutes. */

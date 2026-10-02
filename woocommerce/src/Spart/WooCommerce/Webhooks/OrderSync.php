@@ -510,10 +510,7 @@ class OrderSync {
 	}
 
 	/**
-	 * `intent.expired` — the shopper never finished the Spart checkout before
-	 * the intent TTL lapsed. Only a pending order moves to failed; any other
-	 * status (paid, processing, cancelled, already failed) is left alone, which
-	 * also makes replays a no-op.
+	 * `intent.expired`: fail a pending order; other statuses are left alone, so replays are no-ops.
 	 *
 	 * @param \WC_Order $order The WC order.
 	 * @param Event     $event The webhook event.

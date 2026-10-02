@@ -421,11 +421,9 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 	}
 
 	/**
-	 * Reject an intent expiration below {@see Schema::MIN_INTENT_EXPIRATION_MINUTES}.
+	 * Reject an intent expiration below the minimum: restore the saved value (or default) and show a WC error.
 	 *
-	 * Runs before {@see Schema::sanitize()}, which would silently swap invalid
-	 * input for the default. Like {@see resolve_checkout_window()}, it restores
-	 * the previously-saved value (or the default) and surfaces a WC error.
+	 * Runs before {@see Schema::sanitize()}, which would silently swap in the default.
 	 *
 	 * @param array<string, mixed> $settings Settings array WC is about to persist.
 	 * @return array<string, mixed>

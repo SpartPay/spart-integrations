@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  SDK_REF: f67b1fa21a2befb2567425f8ae8978d4e6539e0b  # TEMP: spart-sdks #17 head (intent expiration), unmerged; re-pin to the merge SHA before merging
+  SDK_REF: f67b1fa21a2befb2567425f8ae8978d4e6539e0b  # TEMP: unmerged spart-sdks #17 head; re-pin to the merge SHA before merging
 
 jobs:
   php-lint:

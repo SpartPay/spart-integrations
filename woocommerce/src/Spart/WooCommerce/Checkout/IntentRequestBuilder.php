@@ -49,8 +49,7 @@ final class IntentRequestBuilder {
 	 *                                             7 day] range defensively in case the
 	 *                                             gateway save validation was bypassed
 	 *                                             (WP-CLI, migration, raw SQL).
-	 * @param int $intent_expiration_minutes      Merchant-configured intent TTL. Floored
-	 *                                             at 1 minute for the same reason.
+	 * @param int $intent_expiration_minutes      Intent TTL; floored at 1 minute for the same reason.
 	 */
 	public function __construct(
 		private readonly int $default_order_duration_minutes,
