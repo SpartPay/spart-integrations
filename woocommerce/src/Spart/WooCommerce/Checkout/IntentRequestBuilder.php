@@ -49,9 +49,11 @@ final class IntentRequestBuilder {
 	 *                                             7 day] range defensively in case the
 	 *                                             gateway save validation was bypassed
 	 *                                             (WP-CLI, migration, raw SQL).
+	 * @param int $intent_expiration_minutes      Intent TTL; floored at 1 minute for the same reason.
 	 */
 	public function __construct(
 		private readonly int $default_order_duration_minutes,
+		private readonly int $intent_expiration_minutes = Schema::DEFAULT_INTENT_EXPIRATION_MINUTES,
 	) {
 	}
 
@@ -91,6 +93,7 @@ final class IntentRequestBuilder {
 			new \DateInterval( 'PT' . Schema::clamp_minutes( $this->default_order_duration_minutes ) . 'M' ),
 			$this->return_uri_for( $order ),
 			$this->cancel_uri(),
+			intentDuration: new \DateInterval( 'PT' . max( Schema::MIN_INTENT_EXPIRATION_MINUTES, $this->intent_expiration_minutes ) . 'M' ),
 		);
 
 		return new CreateIntentRequest(

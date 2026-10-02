@@ -90,6 +90,7 @@ class OrderSync {
 			EventType::OrderCompleted    => $this->on_order_completed( $order, $event ),
 			EventType::OrderCanceled     => $this->on_order_canceled( $order ),
 			EventType::OrderExpired      => $this->on_order_expired( $order ),
+			EventType::IntentExpired     => $this->on_intent_expired( $order, $event ),
 			EventType::WebhookTest       => $this->on_unexpected_test_event( $order, $event ),
 			null                         => $this->on_unknown_event_type( $order, $event ),
 		};
@@ -505,6 +506,32 @@ class OrderSync {
 	 */
 	private function on_order_expired( \WC_Order $order ): void {
 		$order->update_status( 'failed', __( 'Spart intent expired', 'spart-woocommerce' ) );
+		$this->restore_managed_stock( $order );
+	}
+
+	/**
+	 * `intent.expired`: fail a pending order; other statuses are left alone, so replays are no-ops.
+	 *
+	 * @param \WC_Order $order The WC order.
+	 * @param Event     $event The webhook event.
+	 */
+	private function on_intent_expired( \WC_Order $order, Event $event ): void {
+		if ( ! $order->has_status( 'pending' ) ) {
+			$this->logger->info(
+				'webhook.intent.expired.ignored',
+				$this->with_correlation(
+					$order,
+					array(
+						'wc_order_id' => $order->get_id(),
+						'event_id'    => $event->id,
+						'status'      => $order->get_status(),
+					)
+				)
+			);
+			return;
+		}
+
+		$order->update_status( 'failed', __( 'Spart checkout expired before the shopper completed it', 'spart-woocommerce' ) );
 		$this->restore_managed_stock( $order );
 	}
 

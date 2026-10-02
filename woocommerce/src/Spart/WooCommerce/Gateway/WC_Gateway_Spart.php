@@ -406,6 +406,7 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 	 */
 	public function enforce_schema_invariants( array $settings ): array {
 		$settings                = array_replace( $settings, LoadingScreen::sanitize( $settings ) );
+		$settings                = $this->resolve_intent_expiration( $settings );
 		$settings                = Schema::sanitize( $settings );
 		$settings                = $this->resolve_checkout_window( $settings );
 		$settings['webhook_url'] = $this->webhook_url();
@@ -416,6 +417,41 @@ class WC_Gateway_Spart extends \WC_Payment_Gateway {
 				$settings[ $key ] = $saved[ $key ];
 			}
 		}
+		return $settings;
+	}
+
+	/**
+	 * Reject an intent expiration below the minimum: restore the saved value (or default) and show a WC error.
+	 *
+	 * Runs before {@see Schema::sanitize()}, which would silently swap in the default.
+	 *
+	 * @param array<string, mixed> $settings Settings array WC is about to persist.
+	 * @return array<string, mixed>
+	 */
+	private function resolve_intent_expiration( array $settings ): array {
+		$key = Schema::FIELD_INTENT_EXPIRATION_MINUTES;
+		if ( ! array_key_exists( $key, $settings ) ) {
+			return $settings;
+		}
+
+		$value = $settings[ $key ];
+		if ( is_numeric( $value ) && (int) $value >= Schema::MIN_INTENT_EXPIRATION_MINUTES ) {
+			return $settings;
+		}
+
+		$saved     = get_option( $this->get_option_key(), array() );
+		$saved     = is_array( $saved ) ? $saved : array();
+		$had_prior = isset( $saved[ $key ] ) && is_numeric( $saved[ $key ] ) && (int) $saved[ $key ] >= Schema::MIN_INTENT_EXPIRATION_MINUTES;
+
+		$settings[ $key ] = $had_prior ? (int) $saved[ $key ] : Schema::DEFAULT_INTENT_EXPIRATION_MINUTES;
+
+		if ( class_exists( '\WC_Admin_Settings' ) ) {
+			$tail = $had_prior
+				? __( 'Your previous value was kept.', 'spart-woocommerce' )
+				: __( 'The default of 15 minutes was applied instead.', 'spart-woocommerce' );
+			\WC_Admin_Settings::add_error( __( 'The Spart intent expiration must be at least 1 minute.', 'spart-woocommerce' ) . ' ' . $tail );
+		}
+
 		return $settings;
 	}
 

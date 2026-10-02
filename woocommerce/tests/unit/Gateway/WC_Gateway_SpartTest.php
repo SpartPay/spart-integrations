@@ -644,6 +644,35 @@ final class WC_Gateway_SpartTest extends TestCase {
 		$this->assertSame( 0, $out['default_order_window_minutes'] );
 	}
 
+	public function test_enforce_schema_invariants_keeps_valid_intent_expiration(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn( array() );
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants( array( Schema::FIELD_INTENT_EXPIRATION_MINUTES => '1' ) );
+
+		$this->assertSame( 1, $out[ Schema::FIELD_INTENT_EXPIRATION_MINUTES ] );
+	}
+
+	public function test_enforce_schema_invariants_reverts_intent_expiration_below_minimum_to_prior_value(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn(
+			array( Schema::FIELD_INTENT_EXPIRATION_MINUTES => 30 )
+		);
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants( array( Schema::FIELD_INTENT_EXPIRATION_MINUTES => '0' ) );
+
+		$this->assertSame( 30, $out[ Schema::FIELD_INTENT_EXPIRATION_MINUTES ] );
+	}
+
+	public function test_enforce_schema_invariants_reverts_non_numeric_intent_expiration_to_default(): void {
+		\Brain\Monkey\Functions\when( 'get_option' )->justReturn( array() );
+
+		$gateway = new WC_Gateway_Spart();
+		$out     = $gateway->enforce_schema_invariants( array( Schema::FIELD_INTENT_EXPIRATION_MINUTES => 'abc' ) );
+
+		$this->assertSame( Schema::DEFAULT_INTENT_EXPIRATION_MINUTES, $out[ Schema::FIELD_INTENT_EXPIRATION_MINUTES ] );
+	}
+
 	public function test_init_form_fields_seeds_window_defaults_from_legacy_minutes(): void {
 		\Brain\Monkey\Functions\when( 'get_option' )->alias(
 			static function ( $name, $default_value = false ) {

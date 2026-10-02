@@ -30,7 +30,7 @@ final class SchemaWiringTest extends TestCase {
 		);
 		\Brain\Monkey\Functions\when( 'add_action' )->justReturn( null );
 		$gateway = new WC_Gateway_Spart();
-		$this->assertCount( 17, $gateway->form_fields );
+		$this->assertCount( 18, $gateway->form_fields );
 		$this->assertArrayNotHasKey( 'title', $gateway->form_fields );
 		$this->assertArrayNotHasKey( 'description', $gateway->form_fields );
 		$this->assertArrayHasKey( 'api_key', $gateway->form_fields );

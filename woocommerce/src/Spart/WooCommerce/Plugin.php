@@ -346,10 +346,11 @@ final class Plugin {
 
 		$settings = (array) \get_option( Constants::OPTION_KEY, array() );
 		$minutes  = (int) ( $settings['default_order_duration_minutes'] ?? Schema::DEFAULT_ORDER_DURATION_MINUTES );
+		$intent   = (int) ( $settings[ Schema::FIELD_INTENT_EXPIRATION_MINUTES ] ?? Schema::DEFAULT_INTENT_EXPIRATION_MINUTES );
 
 		self::$checkout_session = new CheckoutSession(
 			new WpSpartClientFactory( self::logger() ),
-			new IntentRequestBuilder( $minutes ),
+			new IntentRequestBuilder( $minutes, $intent ),
 			self::logger()
 		);
 		return self::$checkout_session;

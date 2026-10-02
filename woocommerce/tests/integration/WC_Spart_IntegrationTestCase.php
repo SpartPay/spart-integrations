@@ -395,25 +395,25 @@ abstract class WC_Spart_IntegrationTestCase extends TestCase {
 	protected function intent_envelope_payload( \WC_Order $order ): array {
 		return array(
 			'intent' => array(
-				'shortId'     => 'spart_short_' . $order->get_id(),
-				'total'       => array(
+				'shortId'        => 'spart_short_' . $order->get_id(),
+				'total'          => array(
 					'currency' => 'USD',
 					'amount'   => 129.99,
 				),
-				'lineItems'   => array(
+				'lineItems'      => array(
 					array(
 						'name'     => 'T-shirt',
 						'quantity' => 1,
 					),
 				),
-				'sparter'     => array(
+				'sparter'        => array(
 					'fullName' => 'Jane Doe',
 					'email'    => 'jane@example.com',
 				),
-				'sessionId'   => $this->compose_session_id( $order->get_id() ),
-				'countryCode' => 'US',
-				'createdAt'   => gmdate( 'c' ),
-				'expiresOn'   => gmdate( 'c', time() + 3600 ),
+				'sessionId'      => $this->compose_session_id( $order->get_id() ),
+				'countryCode'    => 'US',
+				'createdAt'      => gmdate( 'c' ),
+				'orderExpiresOn' => gmdate( 'c', time() + 3600 ),
 			),
 		);
 	}

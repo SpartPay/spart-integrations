@@ -239,6 +239,69 @@ final class OrderSyncTest extends TestCase {
 		$this->addToAssertionCount( 1 );
 	}
 
+	public function test_intent_expired_fails_pending_order(): void {
+		Monkey\Actions\expectDone( 'spart_webhook_before_apply' )->once();
+
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'has_status' )->once()->with( 'pending' )->andReturn( true );
+		$order->shouldReceive( 'update_status' )
+			->once()
+			->with( 'failed', 'Spart checkout expired before the shopper completed it' );
+		$order->shouldReceive( 'get_items' )->once()->andReturn( array() );
+
+		$sync = new OrderSync( $this->null_logger() );
+		$sync->apply( $order, $this->intent_expired_event( 'evt_intent_expired_1' ) );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_intent_expired_ignores_non_pending_order_and_logs_info(): void {
+		Monkey\Actions\expectDone( 'spart_webhook_before_apply' )->once();
+
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'has_status' )->once()->with( 'pending' )->andReturn( false );
+		$order->shouldReceive( 'get_status' )->andReturn( 'processing' );
+		$order->shouldReceive( 'get_id' )->andReturn( 42 );
+		$order->shouldReceive( 'get_meta' )
+			->with( CheckoutSession::META_CORRELATION_ID )
+			->andReturn( '' );
+		$order->shouldNotReceive( 'update_status' );
+
+		$logger = Mockery::mock( SpartLoggerInterface::class );
+		$logger->shouldReceive( 'info' )
+			->once()
+			->with(
+				'webhook.intent.expired.ignored',
+				array(
+					'wc_order_id' => 42,
+					'event_id'    => 'evt_intent_expired_2',
+					'status'      => 'processing',
+				)
+			);
+
+		$sync = new OrderSync( $logger );
+		$sync->apply( $order, $this->intent_expired_event( 'evt_intent_expired_2' ) );
+		$this->addToAssertionCount( 1 );
+	}
+
+	public function test_intent_expired_replay_on_failed_order_is_a_noop(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'has_status' )
+			->twice()
+			->with( 'pending' )
+			->andReturn( true, false );
+		$order->shouldReceive( 'update_status' )->once()->with( 'failed', Mockery::type( 'string' ) );
+		$order->shouldReceive( 'get_items' )->once()->andReturn( array() );
+		$order->shouldReceive( 'get_status' )->andReturn( 'failed' );
+		$order->shouldReceive( 'get_id' )->andReturn( 42 );
+		$order->shouldReceive( 'get_meta' )->andReturn( '' );
+
+		$sync  = new OrderSync( $this->null_logger() );
+		$event = $this->intent_expired_event( 'evt_intent_expired_3' );
+		$sync->apply( $order, $event );
+		$sync->apply( $order, $event );
+		$this->addToAssertionCount( 1 );
+	}
+
 	public function test_order_canceled_restores_managed_stock_per_line_item(): void {
 		Monkey\Actions\expectDone( 'spart_webhook_before_apply' )->once();
 		Monkey\Functions\expect( 'wc_update_product_stock' )->once()->with(
@@ -916,6 +979,20 @@ final class OrderSyncTest extends TestCase {
 			type:          'intent.created',
 			knownType:     EventType::IntentCreated,
 			createdAt:     '2026-05-13T10:00:00Z',
+			apiVersion:    '1',
+			merchantAppId: 'app_1',
+			data:          null,
+			deliveryId:    'd-1',
+			attempt:       1,
+		);
+	}
+
+	private function intent_expired_event( string $id ): Event {
+		return new Event(
+			id:            $id,
+			type:          EventType::IntentExpired->value,
+			knownType:     EventType::IntentExpired,
+			createdAt:     '2026-05-13T10:15:00Z',
 			apiVersion:    '1',
 			merchantAppId: 'app_1',
 			data:          null,

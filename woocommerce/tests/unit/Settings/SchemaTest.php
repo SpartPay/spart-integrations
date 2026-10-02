@@ -22,7 +22,7 @@ final class SchemaTest extends TestCase {
 	public function test_field_count_includes_loading_settings(): void {
 		$fields = Schema::fields();
 
-		$this->assertCount( 17, $fields );
+		$this->assertCount( 18, $fields );
 	}
 
 	public function test_field_ids_match_expected_set(): void {
@@ -37,6 +37,7 @@ final class SchemaTest extends TestCase {
 				'default_order_window_days',
 				'default_order_window_hours',
 				'default_order_window_minutes',
+				'intent_expiration_minutes',
 				'messaging_enabled_product',
 				'messaging_enabled_cart',
 				'environment',
@@ -152,7 +153,7 @@ final class SchemaTest extends TestCase {
 		// rebuilt from scratch rather than the memoised reference.
 		Schema::reset_for_tests();
 		$rebuilt = Schema::fields();
-		$this->assertCount( 17, $rebuilt );
+		$this->assertCount( 18, $rebuilt );
 		$this->assertContains( Schema::DEBUG_API_ENDPOINT_FIELD, array_map( static fn ( Field $f ) => $f->id(), $rebuilt ) );
 	}
 
@@ -199,6 +200,22 @@ final class SchemaTest extends TestCase {
 		$this->assertSame( 2, $sanitised['default_order_window_days'] );
 		$this->assertSame( 3, $sanitised['default_order_window_hours'] );
 		$this->assertSame( 4, $sanitised['default_order_window_minutes'] );
+	}
+
+	public function test_intent_expiration_field_defaults_to_fifteen_with_min_one(): void {
+		$this->assertSame( 'intent_expiration_minutes', Schema::FIELD_INTENT_EXPIRATION_MINUTES );
+		$this->assertSame( 15, Schema::DEFAULT_INTENT_EXPIRATION_MINUTES );
+		$this->assertSame( 1, Schema::MIN_INTENT_EXPIRATION_MINUTES );
+
+		$array = Schema::field( Schema::FIELD_INTENT_EXPIRATION_MINUTES )->to_wc_array();
+		$this->assertSame( 'number', $array['type'] );
+		$this->assertSame( 15, $array['default'] );
+		$this->assertSame( 1, $array['custom_attributes']['min'] );
+	}
+
+	public function test_sanitize_coerces_intent_expiration_to_int(): void {
+		$sanitised = Schema::sanitize( array( Schema::FIELD_INTENT_EXPIRATION_MINUTES => '30' ) );
+		$this->assertSame( 30, $sanitised[ Schema::FIELD_INTENT_EXPIRATION_MINUTES ] );
 	}
 
 	public function test_max_order_duration_minutes_is_seven_days(): void {
