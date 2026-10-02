@@ -20,6 +20,14 @@ other locales fall back to English. Standard gettext translations take precedenc
 After editing the catalog, rebuild it with
 `msgfmt --check -o languages/spart-woocommerce-it_IT.mo languages/spart-woocommerce-it_IT.po`.
 
+## Intent expiration
+
+In **WooCommerce → Settings → Payments → Spart**, **Intent expiration (minutes)**
+sets how long the shopper has to finish the Spart checkout (default `15`, minimum
+`1`). Values below 1 are rejected on save and the previous value is kept. When the
+intent expires, Spart sends `intent.expired`; a **Pending payment** order moves to
+**Failed**. Orders in any other status are left unchanged.
+
 ## Optional checkout loading screen
 
 In **WooCommerce → Settings → Payments → Spart**, the **Checkout loading screen**

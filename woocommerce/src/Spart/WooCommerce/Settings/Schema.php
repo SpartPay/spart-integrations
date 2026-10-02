@@ -90,6 +90,23 @@ final class Schema {
 	public const FIELD_WINDOW_MINUTES = 'default_order_window_minutes';
 
 	/**
+	 * Default intent expiration in minutes: how long a Spart payment intent
+	 * stays open for the shopper before Spart expires it. Also the fallback
+	 * read by {@see Plugin::checkout_session()} when the option is missing.
+	 */
+	public const DEFAULT_INTENT_EXPIRATION_MINUTES = 15;
+
+	/**
+	 * Minimum intent expiration in minutes. Enforced on save by
+	 * {@see WC_Gateway_Spart::resolve_intent_expiration()} and defensively by
+	 * {@see IntentRequestBuilder}.
+	 */
+	public const MIN_INTENT_EXPIRATION_MINUTES = 1;
+
+	/** Settings field id: intent expiration in minutes. */
+	public const FIELD_INTENT_EXPIRATION_MINUTES = 'intent_expiration_minutes';
+
+	/**
 	 * Derived (non-rendered) option key holding the canonical total checkout
 	 * window in minutes. Computed from the three window components on save and
 	 * read by {@see Plugin::checkout_session()}. Never declared as a Field, so
@@ -192,6 +209,16 @@ final class Schema {
 				__( 'Max order duration — minutes', 'spart-woocommerce' ),
 				0,
 				0
+			),
+			Field::number(
+				self::FIELD_INTENT_EXPIRATION_MINUTES,
+				__( 'Intent expiration (minutes)', 'spart-woocommerce' ),
+				self::DEFAULT_INTENT_EXPIRATION_MINUTES,
+				self::MIN_INTENT_EXPIRATION_MINUTES,
+				array(
+					'description' => __( 'How long the shopper has to finish the Spart checkout before the payment intent expires and the order fails. Must be at least 1 minute (default 15).', 'spart-woocommerce' ),
+					'desc_tip'    => true,
+				)
 			),
 			Field::checkbox(
 				'messaging_enabled_product',

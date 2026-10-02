@@ -445,4 +445,35 @@ final class IntentRequestBuilderTest extends TestCase {
 			);
 		}
 	}
+
+	private function intent_expiration_order(): \WC_Order {
+		return $this->make_order(
+			array(
+				'id'       => 42,
+				'currency' => 'USD',
+				'total'    => '10.00',
+				'email'    => 'jane@example.com',
+				'items'    => array(),
+			)
+		);
+	}
+
+	public function test_intent_duration_defaults_to_fifteen_minutes(): void {
+		$req = ( new IntentRequestBuilder( 10080 ) )->build( $this->intent_expiration_order(), new SessionIdComposer( 'a1b2c3d4' ) );
+
+		$this->assertEquals( new \DateInterval( 'PT15M' ), $req->options->intentDuration );
+	}
+
+	public function test_intent_duration_uses_configured_minutes(): void {
+		$req = ( new IntentRequestBuilder( 10080, 45 ) )->build( $this->intent_expiration_order(), new SessionIdComposer( 'a1b2c3d4' ) );
+
+		$this->assertEquals( new \DateInterval( 'PT45M' ), $req->options->intentDuration );
+	}
+
+	public function test_intent_duration_enforces_one_minute_floor_defensively(): void {
+		foreach ( array( 0, -5 ) as $bad_minutes ) {
+			$req = ( new IntentRequestBuilder( 10080, $bad_minutes ) )->build( $this->intent_expiration_order(), new SessionIdComposer( 'a1b2c3d4' ) );
+			$this->assertEquals( new \DateInterval( 'PT1M' ), $req->options->intentDuration, (string) $bad_minutes );
+		}
+	}
 }

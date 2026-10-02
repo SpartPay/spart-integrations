@@ -8,6 +8,14 @@ versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Intent expiration setting.** New **Intent expiration (minutes)** gateway
+  setting (`intent_expiration_minutes`, default 15, minimum 1), sent to Spart as
+  `OrderOptions::intentDuration` when creating an intent.
+
+- **`intent.expired` webhook.** Moves a **Pending payment** order to **Failed**
+  and restores managed stock. Other statuses are ignored and logged, so replays
+  are no-ops.
+
 - **Spart icon in WooCommerce Payments settings.** The gateway now sets its
   `icon` to a green-S-on-black Spart icon, so **Settings > Payments** shows it
   instead of WooCommerce's generic placeholder. Checkout still shows the
@@ -98,6 +106,9 @@ versions follow [Semantic Versioning](https://semver.org/).
   static surface — no aria-live attribute is emitted there.
 
 ### Changed
+
+- **Requires `spart/sdk` with intent expiration** (spart-sdks #17).
+  `IntentEnvelopeData::$expiresOn` is renamed to `$orderExpiresOn`.
 
 - **Friendlier checkout-window setting.** The single "Default checkout window
   (minutes)" box in **WooCommerce → Settings → Payments → Spart** is replaced

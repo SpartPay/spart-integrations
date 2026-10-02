@@ -177,6 +177,21 @@ final class WpOrderResolverTest extends TestCase {
 		$this->assertSame( $order, $result );
 	}
 
+	public function test_intent_expired_envelope_session_id_is_extracted(): void {
+		$order = Mockery::mock( \WC_Order::class );
+		$order->shouldReceive( 'get_status' )->once()->andReturn( 'pending' );
+
+		Functions\expect( 'wc_get_order' )
+			->once()
+			->with( 13 )
+			->andReturn( $order );
+
+		$event  = $this->intent_event( 'spart-wc-abcd1234-13', EventType::IntentExpired );
+		$result = ( new WpOrderResolver( self::SITE_TOKEN ) )->resolve( $event );
+
+		$this->assertSame( $order, $result );
+	}
+
 	public function test_payment_part_released_envelope_session_id_is_extracted(): void {
 		$order = Mockery::mock( \WC_Order::class );
 		$order->shouldReceive( 'get_status' )->once()->andReturn( 'pending' );
@@ -287,7 +302,7 @@ final class WpOrderResolverTest extends TestCase {
 		);
 	}
 
-	private function intent_event( string $session_id ): Event {
+	private function intent_event( string $session_id, EventType $type = EventType::IntentCreated ): Event {
 		$money   = new WebhookMoney( currency: 'USD', amount: 100.00 );
 		$contact = new WebhookContact( fullName: 'Sparter', email: 'sparter@example.com' );
 		$data    = new IntentEnvelopeData(
@@ -298,13 +313,13 @@ final class WpOrderResolverTest extends TestCase {
 			sessionId:   $session_id,
 			countryCode: 'US',
 			createdAt:   '2026-05-13T10:00:00Z',
-			expiresOn:   '2026-05-14T10:00:00Z',
+			orderExpiresOn: '2026-05-14T10:00:00Z',
 		);
 
 		return new Event(
 			id:            'evt-int',
-			type:          'intent.created',
-			knownType:     EventType::IntentCreated,
+			type:          $type->value,
+			knownType:     $type,
 			createdAt:     '2026-05-13T10:00:00Z',
 			apiVersion:    '1',
 			merchantAppId: 'app_1',
